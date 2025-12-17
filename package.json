@@ -28,6 +28,10 @@
         {
           "id": "gittown-view",
           "name": "Git Town"
+        },
+        {
+          "id": "gittown-settings",
+          "name": "Settings"
         }
       ]
     },

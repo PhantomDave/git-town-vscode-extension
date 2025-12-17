@@ -10,7 +10,7 @@
 			]
 		}
 	},
-	"postCreateCommand": "npm install && curl https://www.git-town.com/install.sh | sh",
+	"postCreateCommand": "npm install && curl https://www.git-town.com/install.sh | sh && cd ~ && mkdir gittest && cd gittest && git init && git init",
 	"remoteUser": "node",
 	"forwardPorts": [],
 	"mounts": [

@@ -10,6 +10,6 @@
 			]
 		}
 	},
-	"postCreateCommand": "npm install",
+	"postCreateCommand": "npm install && curl https://www.git-town.com/install.sh | sh",
 	"remoteUser": "node"
 }

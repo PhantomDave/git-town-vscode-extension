@@ -11,5 +11,9 @@
 		}
 	},
 	"postCreateCommand": "npm install && curl https://www.git-town.com/install.sh | sh",
-	"remoteUser": "node"
+	"remoteUser": "node",
+	"forwardPorts": [],
+	"mounts": [
+		"source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,consistency=cached"
+	]
 }

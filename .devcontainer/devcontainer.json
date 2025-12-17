@@ -1,0 +1,15 @@
+{
+	"name": "Git Town Wrapper Extension",
+	"image": "mcr.microsoft.com/devcontainers/typescript-node:latest",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dbaeumer.vscode-eslint",
+				"ms-vscode.extension-test-runner",
+				"connor4312.esbuild-problem-matchers"
+			]
+		}
+	},
+	"postCreateCommand": "npm install",
+	"remoteUser": "node"
+}

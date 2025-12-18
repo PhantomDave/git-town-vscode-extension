@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { GitTownItem } from '../items/gitTownItem';
-import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount } from '../utils';
+import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount, debounce } from '../utils';
+import { executingCommands, isAnyCommandExecuting } from '../commandState';
 
 export enum TreeItemType {
     Status = 'Status',
@@ -11,9 +12,10 @@ export enum TreeItemType {
 export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<GitTownItem | undefined | null | void> = new vscode.EventEmitter<GitTownItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<GitTownItem | undefined | null | void> = this._onDidChangeTreeData.event;
+    private readonly debouncedRefresh = debounce(() => this._onDidChangeTreeData.fire(), 500);
 
     refresh(): void {
-        this._onDidChangeTreeData.fire();
+        this.debouncedRefresh();
     }
 
     getTreeItem(element: GitTownItem): vscode.TreeItem {
@@ -61,13 +63,31 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownI
 
         if (element.itemType === TreeItemType.Workflows) {
             return [
-                new GitTownItem('Sync', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.sync'),
-                new GitTownItem('Hack (New Branch)', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.hack'),
-                new GitTownItem('Ship (Merge & Delete)', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.ship'),
-                new GitTownItem('Propose (Create PR)', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.propose'),
+                this.createWorkflowItem('Sync', 'phantomdave-gittown-wrapper.sync'),
+                this.createWorkflowItem('Hack (New Branch)', 'phantomdave-gittown-wrapper.hack'),
+                this.createWorkflowItem('Ship (Merge & Delete)', 'phantomdave-gittown-wrapper.ship'),
+                this.createWorkflowItem('Propose (Create PR)', 'phantomdave-gittown-wrapper.propose'),
             ];
         }
 
         return [];
+    }
+
+    private createWorkflowItem(label: string, commandId: string): GitTownItem {
+        const item = new GitTownItem(label, vscode.TreeItemCollapsibleState.None, commandId);
+        const busy = isAnyCommandExecuting();
+        const isRunning = executingCommands.has(commandId);
+
+        if (isRunning) {
+            item.iconPath = new vscode.ThemeIcon('sync~spin');
+            item.description = 'Running…';
+            item.tooltip = `${label} (running)`;
+            item.command = undefined;
+        } else if (busy) {
+            item.command = undefined;
+            item.tooltip = `${label} (waiting for current command to finish)`;
+        }
+
+        return item;
     }
 }

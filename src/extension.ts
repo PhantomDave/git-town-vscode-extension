@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName } from './utils';
+import { enqueueCommandExecution, onCommandStateChanged } from './commandState';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
 
@@ -21,6 +22,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerTreeDataProvider('gittown-settings', settingsProvider)
 	);
 
+	// Refresh the tree whenever command execution state changes so busy states stay visible
+	context.subscriptions.push(
+		onCommandStateChanged(() => {
+			gitTownProvider?.refresh();
+		})
+	);
+
 	// Register refresh command
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.refresh', async () => {
@@ -32,9 +40,26 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Register Git Town workflow commands
+	const runWorkflowCommand = async (
+		commandId: string,
+		friendlyName: string,
+		action: () => Promise<void>
+	) => {
+		try {
+			await enqueueCommandExecution(commandId, action);
+			gitTownProvider.refresh();
+			settingsProvider.refresh();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(`${friendlyName} failed: ${message}`);
+		}
+	};
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.sync', async () => {
-			await runGitTownCommand('git town sync');
+			await runWorkflowCommand('phantomdave-gittown-wrapper.sync', 'Git Town sync', async () => {
+				await runGitTownCommand('git town sync');
+			});
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.hack', async () => {
 			const branchName = await vscode.window.showInputBox({
@@ -44,11 +69,14 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (branchName) {
 				// Validate branch name to prevent command injection
 				if (!isValidGitBranchName(branchName)) {
-					vscode.window.showErrorMessage('Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".');
+					vscode.window.showErrorMessage(
+						'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".'
+					);
 					return;
 				}
-				await runGitTownCommand(`git town hack "${branchName}"`);
-				gitTownProvider.refresh();
+				await runWorkflowCommand('phantomdave-gittown-wrapper.hack', 'Git Town hack', async () => {
+					await runGitTownCommand(`git town hack "${branchName}"`);
+				});
 			}
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.ship', async () => {
@@ -58,26 +86,29 @@ export async function activate(context: vscode.ExtensionContext) {
 				'Ship'
 			);
 			if (confirm === 'Ship') {
-				await runGitTownCommand('git town ship');
-				gitTownProvider.refresh();
+				await runWorkflowCommand('phantomdave-gittown-wrapper.ship', 'Git Town ship', async () => {
+					await runGitTownCommand('git town ship');
+				});
 			}
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.propose', async () => {
-			await runGitTownCommand('git town propose');
+			await runWorkflowCommand('phantomdave-gittown-wrapper.propose', 'Git Town propose', async () => {
+				await runGitTownCommand('git town propose');
+			});
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.initializeGitTown', async () => {
-			await runGitTownCommand('git town init');
-			
-			// Poll for initialization completion instead of using arbitrary timeout
-			const maxWaitMs = 10000;
-			const pollIntervalMs = 500;
-			const startTime = Date.now();
+			await runWorkflowCommand('phantomdave-gittown-wrapper.initializeGitTown', 'Git Town initialize', async () => {
+				await runGitTownCommand('git town init');
+				
+				// Poll for initialization completion instead of using arbitrary timeout
+				const maxWaitMs = 10000;
+				const pollIntervalMs = 500;
+				const startTime = Date.now();
 
-			while (!(await isGitTownInitialized()) && Date.now() - startTime < maxWaitMs) {
-				await sleep(pollIntervalMs);
-			}
-
-			gitTownProvider.refresh();
+				while (!(await isGitTownInitialized()) && Date.now() - startTime < maxWaitMs) {
+					await sleep(pollIntervalMs);
+				}
+			});
 		})
 	);
 

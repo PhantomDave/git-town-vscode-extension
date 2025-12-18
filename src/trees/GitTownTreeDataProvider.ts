@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { GitTownItem } from '../items/gitTownItem';
 import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount } from '../utils';
 
-enum TreeItemType {
+export enum TreeItemType {
     Status = 'Status',
     Branches = 'Branches',
     Workflows = 'Workflows'

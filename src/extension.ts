@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep } from './utils';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
 
@@ -43,9 +43,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 			if (branchName) {
 				// Validate branch name to prevent command injection
-				const isValidBranchName = /^[A-Za-z0-9._\/-]+$/.test(branchName);
+				// Git branch names must start with alphanumeric, can't have consecutive slashes or dots at ends
+				const isValidBranchName = /^[A-Za-z0-9]([A-Za-z0-9._-]*[\/]?[A-Za-z0-9._-]*)*$/.test(branchName);
 				if (!isValidBranchName) {
-					vscode.window.showErrorMessage('Invalid branch name. Use only letters, numbers, ".", "_", "-", and "/".');
+					vscode.window.showErrorMessage('Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".');
 					return;
 				}
 				await runGitTownCommand(`git town hack "${branchName}"`);
@@ -73,7 +74,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			const maxWaitMs = 10000;
 			const pollIntervalMs = 500;
 			const startTime = Date.now();
-			const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 			while (!(await isGitTownInitialized()) && Date.now() - startTime < maxWaitMs) {
 				await sleep(pollIntervalMs);

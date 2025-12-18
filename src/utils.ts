@@ -168,8 +168,12 @@ function isSafeGitTownCommand(command: string): boolean {
     return false;
   }
   // Reject characters that are typically used for shell command chaining or substitution.
-  const unsafePattern = /[;&|`$<>]/;
+  const unsafePattern = /[;&|`$<>()]/;
   return !unsafePattern.test(trimmed);
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
 export async function runGitTownCommand(command: string): Promise<void> {

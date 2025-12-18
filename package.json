@@ -34,13 +34,54 @@
     },
     "commands": [
       {
-        "command": "phantomdave-gittown-wrapper.helloWorld",
-        "title": "Hello World"
-      },
-      {
         "command": "phantomdave-gittown-wrapper.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.sync",
+        "title": "Git Town: Sync",
+        "description": "Sync the current branch with upstream changes"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.hack",
+        "title": "Git Town: Hack",
+        "description": "Create and checkout a new feature branch"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.ship",
+        "title": "Git Town: Ship",
+        "description": "Merge and delete the current feature branch"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.propose",
+        "title": "Git Town: Propose",
+        "description": "Create a pull request for the current branch"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.initializeGitTown",
+        "title": "Git Town: Initialize",
+        "description": "Initialize Git Town for the current repository"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "phantomdave-gittown-wrapper.hack",
+        "key": "ctrl+k h",
+        "mac": "cmd+k h",
+        "when": "!editorTextFocus"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.sync",
+        "key": "ctrl+k s",
+        "mac": "cmd+k s",
+        "when": "!editorTextFocus"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.propose",
+        "key": "ctrl+k p",
+        "mac": "cmd+k p",
+        "when": "!editorTextFocus"
       }
     ],
     "menus": {

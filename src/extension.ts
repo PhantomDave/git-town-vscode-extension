@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName } from './utils';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
 
@@ -43,9 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 			if (branchName) {
 				// Validate branch name to prevent command injection
-				// Git branch names must start with alphanumeric, can't have consecutive slashes or dots at ends
-				const isValidBranchName = /^[A-Za-z0-9]([A-Za-z0-9._-]*[\/]?[A-Za-z0-9._-]*)*$/.test(branchName);
-				if (!isValidBranchName) {
+				if (!isValidGitBranchName(branchName)) {
 					vscode.window.showErrorMessage('Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".');
 					return;
 				}

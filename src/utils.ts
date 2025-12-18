@@ -167,13 +167,25 @@ function isSafeGitTownCommand(command: string): boolean {
   if (!trimmed.startsWith('git town')) {
     return false;
   }
-  // Reject characters that are typically used for shell command chaining or substitution.
-  const unsafePattern = /[;&|`$<>()]/;
+  // Reject characters that are typically used for shell command chaining, substitution, or globbing.
+  // This includes: semicolons, pipes, backticks, dollar signs, redirects, command substitution,
+  // wildcards, brackets, braces, backslashes, and quotes
+  const unsafePattern = /[;&|`$<>()\\*?[\]{}'"]/;
   return !unsafePattern.test(trimmed);
 }
 
 export function sleep(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+export function isValidGitBranchName(branchName: string): boolean {
+  // Git branch names must:
+  // - Start with alphanumeric character
+  // - Cannot have consecutive slashes
+  // - Cannot have leading/trailing dots
+  // - Can contain letters, numbers, dots, underscores, hyphens, and slashes
+  const branchNamePattern = /^[A-Za-z0-9]([A-Za-z0-9._-]*[\/]?[A-Za-z0-9._-]*)*$/;
+  return branchNamePattern.test(branchName);
 }
 
 export async function runGitTownCommand(command: string): Promise<void> {

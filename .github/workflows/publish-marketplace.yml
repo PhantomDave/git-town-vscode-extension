@@ -1,0 +1,52 @@
+name: Publish to VS Code Marketplace
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Set to true to skip the publish step and only build"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run package
+
+      - name: Publish to Marketplace
+        if: inputs.dry_run == 'false'
+        env:
+          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+        run: |
+          if [ -z "$VSCE_TOKEN" ]; then
+            echo "VSCE_TOKEN secret is required to publish" >&2
+            exit 1
+          fi
+
+          npx @vscode/vsce publish --pat "$VSCE_TOKEN" --no-dependencies
+
+      - name: Publish skipped (dry run)
+        if: inputs.dry_run == 'true'
+        run: echo "Dry run enabled - skipping publish to Marketplace"

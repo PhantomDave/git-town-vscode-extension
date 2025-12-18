@@ -9,9 +9,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:phantomdave-gittown-wrapper.helloWorld"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {

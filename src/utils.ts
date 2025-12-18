@@ -1,33 +1,149 @@
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import * as vscode from 'vscode';
 
-export function isGitTownInstalled(): string {
-  try {
-    return execSync('git-town --version', { stdio: 'pipe', encoding: 'utf-8' });
-  } catch (error) {
-    throw new Error('Git Town is not installed or not found in PATH.');
-  }
+const execAsync = promisify(exec);
+
+interface CommandResult {
+  success: boolean;
+  output?: string;
+  error?: string;
 }
 
-export function isGitTownInitialized(): boolean {
-  try {
-    const mainBranch = execSync('git config --get town.mainBranch', { 
-      stdio: 'pipe', 
-      encoding: 'utf-8' 
-    }).trim();
-    return mainBranch.length > 0;
-  } catch (error) {
-    return false;
+
+let outputChannel: vscode.OutputChannel | undefined;
+
+export function getOutputChannel(): vscode.OutputChannel {
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel('Git Town');
   }
+  return outputChannel;
 }
 
-export function isGitRepository(): boolean {
+function getCwd(): string {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (workspaceFolder) {
+    return workspaceFolder.uri.fsPath;
+  }
+  return process.cwd();
+}
+
+function cleanAnsiCodes(text: string): string {
+  // Remove ANSI escape codes (colors, formatting)
+  let cleaned = text.replace(/\x1b\[[0-9;]*m/g, '');
+  
+  // Remove other ANSI escape sequences (cursor movement, etc.)
+  cleaned = cleaned.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+  cleaned = cleaned.replace(/\x1b[>=]/g, '');
+  
+  // Remove null bytes to prevent injection attacks
+  cleaned = cleaned.replace(/\0/g, '');
+  
+  // Remove control characters (except newlines, tabs, carriage returns)
+  cleaned = cleaned.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
+  
+  // Remove potentially dangerous Unicode characters that might be used for obfuscation
+  // Zero-width characters
+  cleaned = cleaned.replace(/[\u200B-\u200D\uFEFF]/g, '');
+  
+  // Trim whitespace from start and end
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+}
+
+async function runCommandInLocalFolder(command: string): Promise<CommandResult> {
+  const cwd = getCwd();
   try {
-    execSync('git rev-parse --git-dir', { 
-      stdio: 'pipe', 
-      encoding: 'utf-8' 
+    const { stdout, stderr } = await execAsync(command, { 
+      cwd,
+      encoding: 'utf-8',
+      maxBuffer: 1024 * 1024
     });
-    return true;
+    
+    const commandResult = {} as CommandResult;
+    if (stderr) {
+      getOutputChannel().appendLine(`Warning: ${stderr}`);
+      commandResult.error = cleanAnsiCodes(stderr);
+      commandResult.success = false;
+    }
+
+    commandResult.output = cleanAnsiCodes(stdout);
+    commandResult.success = true;
+    return commandResult;
+    
+  } catch (error: any) {
+    const errorMsg = `Failed to execute: ${command}\n${error.message}`;
+    getOutputChannel().appendLine(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
+
+export async function isGitTownInstalled(): Promise<string | null> {
+  try {
+    const result = await runCommandInLocalFolder('git-town --version');
+    return result.output || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function isGitTownInitialized(): Promise<boolean> {
+  try {
+    const mainBranchResult = await runCommandInLocalFolder('git config --get gittown.main-branch');
+     return (mainBranchResult?.output?.length ?? 0) > 0;
+  } catch (error) {
+    try {
+      const mainBranchResult = await runCommandInLocalFolder('git config --get town.mainBranch');
+       return (mainBranchResult?.output?.length ?? 0) > 0;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export async function isGitRepository(): Promise<boolean> {
+  try {
+    const result = await runCommandInLocalFolder('git rev-parse --git-dir');
+    return result.success;
   } catch (error) {
     return false;
   }
+}
+
+export async function getCurrentBranch(): Promise<string> {
+  try {
+    const result = await runCommandInLocalFolder('git branch --show-current');
+    return result.output || 'unknown';
+  } catch (error) {
+    return 'unknown';
+  }
+}
+
+export async function getUncommittedChangesCount(): Promise<number> {
+  try {
+    const statusResult = await runCommandInLocalFolder('git status --porcelain');
+    return statusResult?.output?.split('\n').filter(line => line.trim().length > 0).length ?? 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+export async function getGitTownBranches(): Promise<string[]> {
+  try {
+    const branchesResult = await runCommandInLocalFolder('git town branch');
+    return branchesResult?.output?.split('\n').map(branch => branch.replace(/"/g, '').trim()).filter(branch => branch.length > 0) ?? [];
+  } catch (error) {
+    getOutputChannel().appendLine('Failed to get branches');
+    return [];
+  }
+}
+
+export async function runGitTownCommand(command: string): Promise<void> {
+  const terminal = vscode.window.createTerminal({
+    name: 'Git Town',
+    cwd: getCwd()
+  });
+  terminal.show();
+  terminal.sendText(command);
 }

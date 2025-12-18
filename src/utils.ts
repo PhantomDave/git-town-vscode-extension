@@ -184,8 +184,32 @@ export function isValidGitBranchName(branchName: string): boolean {
   // - Cannot have consecutive slashes
   // - Cannot have leading/trailing dots
   // - Can contain letters, numbers, dots, underscores, hyphens, and slashes
-  const branchNamePattern = /^[A-Za-z0-9]([A-Za-z0-9._-]*[\/]?[A-Za-z0-9._-]*)*$/;
-  return branchNamePattern.test(branchName);
+  
+  if (!branchName || branchName.length === 0) {
+    return false;
+  }
+  
+  // Must start with alphanumeric
+  if (!/^[A-Za-z0-9]/.test(branchName)) {
+    return false;
+  }
+  
+  // Only allow safe characters - no backtracking risk with simpler pattern
+  if (!/^[A-Za-z0-9._\/-]+$/.test(branchName)) {
+    return false;
+  }
+  
+  // Cannot have consecutive slashes
+  if (/\/\//.test(branchName)) {
+    return false;
+  }
+  
+  // Cannot end with dot or slash (Git restrictions)
+  if (/[.\/]$/.test(branchName)) {
+    return false;
+  }
+  
+  return true;
 }
 
 export async function runGitTownCommand(command: string): Promise<void> {

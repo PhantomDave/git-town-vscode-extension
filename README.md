@@ -1,3 +1,5 @@
+# DISCLAIMER: I vibe-coded this readme and small part of the code, so vibe-coding is allowed, but please reivew code from 🤖
+
 # Git Town VS Code Extension
 
 A VS Code extension that provides a powerful wrapper around [Git Town](https://www.git-town.com/) commands, enabling seamless Git workflow management directly from your editor.

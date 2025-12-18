@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName } from './utils';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
 
@@ -42,6 +42,11 @@ export async function activate(context: vscode.ExtensionContext) {
 				placeHolder: 'feature/my-feature'
 			});
 			if (branchName) {
+				// Validate branch name to prevent command injection
+				if (!isValidGitBranchName(branchName)) {
+					vscode.window.showErrorMessage('Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".');
+					return;
+				}
 				await runGitTownCommand(`git town hack "${branchName}"`);
 				gitTownProvider.refresh();
 			}
@@ -62,7 +67,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.initializeGitTown', async () => {
 			await runGitTownCommand('git town init');
-			setTimeout(() => gitTownProvider.refresh(), 2000);
+			
+			// Poll for initialization completion instead of using arbitrary timeout
+			const maxWaitMs = 10000;
+			const pollIntervalMs = 500;
+			const startTime = Date.now();
+
+			while (!(await isGitTownInitialized()) && Date.now() - startTime < maxWaitMs) {
+				await sleep(pollIntervalMs);
+			}
+
+			gitTownProvider.refresh();
 		})
 	);
 

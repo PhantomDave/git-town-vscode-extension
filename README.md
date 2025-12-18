@@ -1,6 +1,6 @@
-# phantomdave-gittown-wrapper README
+# phantomdave-gittown-wrapper
 
-This is the README for your extension "phantomdave-gittown-wrapper". After writing up a brief description, we recommend including the following sections.
+A VS Code extension that provides a wrapper around Git Town commands for improved workflow management.
 
 ## Features
 

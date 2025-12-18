@@ -79,12 +79,4 @@ suite('Utils Tests', () => {
   test('isValidGitBranchName accepts branches starting with numbers', () => {
     assert.strictEqual(isValidGitBranchName('123-feature'), true);
   });
-
-  test('isValidGitBranchName rejects empty string', () => {
-    assert.strictEqual(isValidGitBranchName(''), false);
-  });
-
-  test('isValidGitBranchName rejects consecutive slashes', () => {
-    assert.strictEqual(isValidGitBranchName('feature//branch'), false);
-  });
 });

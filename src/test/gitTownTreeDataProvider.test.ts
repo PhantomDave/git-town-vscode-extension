@@ -1,7 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { GitTownTreeDataProvider, TreeItemType } from '../trees/GitTownTreeDataProvider';
-import { executingCommands } from '../commandState';
+import { GitTownTreeDataProvider } from '../trees/GitTownTreeDataProvider';
 
 suite('GitTownTreeDataProvider Tests', () => {
   let provider: GitTownTreeDataProvider;

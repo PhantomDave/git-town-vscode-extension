@@ -73,8 +73,8 @@
       },
       {
         "command": "phantomdave-gittown-wrapper.sync",
-        "key": "ctrl+k s",
-        "mac": "cmd+k s",
+        "key": "ctrl+k ctrl+s",
+        "mac": "cmd+k cmd+s",
         "when": "!editorTextFocus"
       },
       {

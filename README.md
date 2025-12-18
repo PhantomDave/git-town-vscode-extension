@@ -14,7 +14,8 @@ For example if there is an image subfolder under your extension project workspac
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Node.js 22 with npm (matches the version used in CI).
+- BUN is not currently recommended for this project because the VS Code test runner (`@vscode/test-electron`) and the esbuild bundling step rely on Node/Electron tooling that BUN does not fully support yet.
 
 ## Extension Settings
 

@@ -21,11 +21,29 @@ export function getOutputChannel(): vscode.OutputChannel {
 }
 
 function getCwd(): string {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (workspaceFolder) {
-    return workspaceFolder.uri.fsPath;
+  // In a multi-root workspace, try to find the folder with a git repository
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return process.cwd();
   }
-  return process.cwd();
+  
+  // If there's only one workspace folder, use it
+  if (workspaceFolders.length === 1) {
+    return workspaceFolders[0].uri.fsPath;
+  }
+  
+  // For multi-root workspaces, prefer the active text editor's workspace folder
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
+    if (workspaceFolder) {
+      return workspaceFolder.uri.fsPath;
+    }
+  }
+  
+  // Fall back to the first workspace folder
+  return workspaceFolders[0].uri.fsPath;
 }
 
 function cleanAnsiCodes(text: string): string {
@@ -61,16 +79,19 @@ async function runCommandInLocalFolder(command: string): Promise<CommandResult> 
       maxBuffer: 1024 * 1024
     });
     
-    const commandResult = {} as CommandResult;
+    const commandResult: CommandResult = {
+      success: true,
+      output: cleanAnsiCodes(stdout)
+    };
+    
+    // Git commands often write warnings to stderr even when they succeed.
+    // We'll log stderr as a warning but still consider the command successful
+    // unless there's an actual exception (which is caught below).
     if (stderr) {
-      getOutputChannel().appendLine(`Warning: ${stderr}`);
+      getOutputChannel().appendLine(`Warning from command: ${stderr}`);
       commandResult.error = cleanAnsiCodes(stderr);
-      commandResult.success = false;
-      return commandResult;
     }
 
-    commandResult.success = true;
-    commandResult.output = cleanAnsiCodes(stdout);
     return commandResult;
     
   } catch (error: any) {
@@ -140,11 +161,29 @@ export async function getGitTownBranches(): Promise<string[]> {
   }
 }
 
+function isSafeGitTownCommand(command: string): boolean {
+  const trimmed = command.trim();
+  // Only allow Git Town commands and disallow common shell metacharacters used for injection.
+  if (!trimmed.startsWith('git town')) {
+    return false;
+  }
+  // Reject characters that are typically used for shell command chaining or substitution.
+  const unsafePattern = /[;&|`$<>]/;
+  return !unsafePattern.test(trimmed);
+}
+
 export async function runGitTownCommand(command: string): Promise<void> {
+  const safeCommand = command.trim();
+  if (!isSafeGitTownCommand(safeCommand)) {
+    getOutputChannel().appendLine(`Refused to run unsafe Git Town command: "${command}"`);
+    vscode.window.showErrorMessage('The Git Town command is not valid or may be unsafe and was not executed.');
+    return;
+  }
+
   const terminal = vscode.window.createTerminal({
     name: 'Git Town',
     cwd: getCwd()
   });
   terminal.show();
-  terminal.sendText(command);
+  terminal.sendText(safeCommand);
 }

@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { getOutputChannel } from '../utils';
 
 export class SettingsItem extends vscode.TreeItem {
     constructor(public readonly label: string, private readonly action?: string) {
@@ -12,7 +11,7 @@ export class SettingsItem extends vscode.TreeItem {
                 title: 'Show Output',
                 arguments: ['Git Town']
             };
-        } else if (action?.startsWith('http')) {
+        } else if (action?.startsWith('https://') || action?.startsWith('http://')) {
             this.command = {
                 command: 'vscode.open',
                 title: 'Open Link',

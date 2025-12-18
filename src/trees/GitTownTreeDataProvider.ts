@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import { GitTownItem } from '../items/gitTownItem';
 import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount } from '../utils';
 
+enum TreeItemType {
+    Status = 'Status',
+    Branches = 'Branches',
+    Workflows = 'Workflows'
+}
+
 export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<GitTownItem | undefined | null | void> = new vscode.EventEmitter<GitTownItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<GitTownItem | undefined | null | void> = this._onDidChangeTreeData.event;
@@ -18,16 +24,18 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownI
         if (!element) {
             // Root level items
             return [
-                new GitTownItem('Status', vscode.TreeItemCollapsibleState.Collapsed),
-                new GitTownItem('Branches', vscode.TreeItemCollapsibleState.Collapsed),
-                new GitTownItem('Workflows', vscode.TreeItemCollapsibleState.Expanded),
+                new GitTownItem('Status', vscode.TreeItemCollapsibleState.Collapsed, undefined, TreeItemType.Status),
+                new GitTownItem('Branches', vscode.TreeItemCollapsibleState.Collapsed, undefined, TreeItemType.Branches),
+                new GitTownItem('Workflows', vscode.TreeItemCollapsibleState.Expanded, undefined, TreeItemType.Workflows),
             ];
         }
 
-        // Handle children based on parent label
-        if (element.label === 'Status') {
-            const currentBranch = await getCurrentBranch();
-            const changesCount = await getUncommittedChangesCount();
+        // Handle children based on parent type
+        if (element.itemType === TreeItemType.Status) {
+            const [currentBranch, changesCount] = await Promise.all([
+                getCurrentBranch(),
+                getUncommittedChangesCount()
+            ]);
             
             return [
                 new GitTownItem(`Current Branch: ${currentBranch}`, vscode.TreeItemCollapsibleState.None),
@@ -35,9 +43,11 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownI
             ];
         }
 
-        if (element.label === 'Branches') {
-            const branches = await getGitTownBranches();
-            const currentBranch = await getCurrentBranch();
+        if (element.itemType === TreeItemType.Branches) {
+            const [branches, currentBranch] = await Promise.all([
+                getGitTownBranches(),
+                getCurrentBranch()
+            ]);
             
             return branches.map(branch => {
                 const item = new GitTownItem(branch, vscode.TreeItemCollapsibleState.None);
@@ -49,7 +59,7 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownI
             });
         }
 
-        if (element.label === 'Workflows') {
+        if (element.itemType === TreeItemType.Workflows) {
             return [
                 new GitTownItem('Sync', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.sync'),
                 new GitTownItem('Hack (New Branch)', vscode.TreeItemCollapsibleState.None, 'phantomdave-gittown-wrapper.hack'),

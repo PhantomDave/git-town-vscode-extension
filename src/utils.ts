@@ -66,10 +66,11 @@ async function runCommandInLocalFolder(command: string): Promise<CommandResult> 
       getOutputChannel().appendLine(`Warning: ${stderr}`);
       commandResult.error = cleanAnsiCodes(stderr);
       commandResult.success = false;
+      return commandResult;
     }
 
-    commandResult.output = cleanAnsiCodes(stdout);
     commandResult.success = true;
+    commandResult.output = cleanAnsiCodes(stdout);
     return commandResult;
     
   } catch (error: any) {

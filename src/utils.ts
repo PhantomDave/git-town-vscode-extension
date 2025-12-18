@@ -33,7 +33,6 @@ function getCwd(): string {
     return workspaceFolders[0].uri.fsPath;
   }
   
-  // For multi-root workspaces, prefer the active text editor's workspace folder
   const activeEditor = vscode.window.activeTextEditor;
   if (activeEditor) {
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
@@ -226,4 +225,17 @@ export async function runGitTownCommand(command: string): Promise<void> {
   });
   terminal.show();
   terminal.sendText(safeCommand);
+}
+
+export function debounce<T extends (...args: unknown[]) => void>(func: T, waitMs: number): (...args: Parameters<T>) => void {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	return (...args: Parameters<T>) => {
+		if (timeout) {
+			clearTimeout(timeout);
+		}
+		timeout = setTimeout(() => {
+			timeout = undefined;
+			func(...args);
+		}, waitMs);
+	};
 }

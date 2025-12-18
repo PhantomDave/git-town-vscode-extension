@@ -33,7 +33,7 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test
+        run: xvfb-run -a npm test
 
       - name: Build extension
         run: npm run package
@@ -55,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: Run extension tests
-        run: npm test
+        run: xvfb-run -a npm test
         env:
           CI: true
 
@@ -76,7 +76,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm test -- --coverage 2>/dev/null || npm test
+        run: xvfb-run -a npm test -- --coverage 2>/dev/null || xvfb-run -a npm test
 
       - name: Check coverage thresholds
         run: |

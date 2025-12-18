@@ -1,6 +1,6 @@
-# phantomdave-gittown-wrapper README
+# phantomdave-gittown-wrapper
 
-This is the README for your extension "phantomdave-gittown-wrapper". After writing up a brief description, we recommend including the following sections.
+A VS Code extension that provides a wrapper around Git Town commands for improved workflow management.
 
 ## Features
 
@@ -16,6 +16,36 @@ For example if there is an image subfolder under your extension project workspac
 
 - Node.js 22 with npm (matches the version used in CI).
 - BUN is not currently recommended for this project because the VS Code test runner (`@vscode/test-electron`) and the esbuild bundling step rely on Node/Electron tooling that BUN does not fully support yet.
+
+## Development
+
+### Building and Packaging
+
+To build the extension:
+```bash
+npm run package
+```
+
+To create a .vsix package file:
+```bash
+npm run package-extension
+```
+
+### Creating a Release
+
+This repository includes an automated release workflow. To create a new release:
+
+1. Go to the **Actions** tab in GitHub
+2. Select the **Package and Release** workflow
+3. Click **Run workflow**
+4. Enter the desired tag name (e.g., `v0.0.1`)
+5. Click **Run workflow**
+
+The workflow will automatically:
+- Package the extension into a .vsix file
+- Create a GitHub Release with the specified tag
+- Attach the .vsix file to the release
+- Generate release notes from recent commits
 
 ## Extension Settings
 

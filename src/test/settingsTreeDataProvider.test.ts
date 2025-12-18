@@ -20,7 +20,7 @@ suite('SettingsTreeDataProvider Tests', () => {
 
     assert.ok(Array.isArray(children), 'Should return an array');
     // Settings provider should return some items
-    assert.ok(children.length >= 0, 'Should have valid children length');
+    assert.ok(children.length > 0, 'Should return at least one child');
   });
 
   test('refresh triggers onDidChangeTreeData event', async () => {

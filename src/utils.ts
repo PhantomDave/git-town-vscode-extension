@@ -41,6 +41,7 @@ function getCwd(): string {
     }
   }
   
+  // Fall back to the first workspace folder
   return workspaceFolders[0].uri.fsPath;
 }
 

@@ -86,7 +86,7 @@ suite('Command State Tests', () => {
     listener.dispose();
   });
 
-  test('executingCommands set tracks multiple concurrent queued commands', async () => {
+  test('executingCommands set clears all commands after serial execution', async () => {
     const promise1 = enqueueCommandExecution('multi-1', async () => {
       await new Promise(resolve => setTimeout(resolve, 30));
     });

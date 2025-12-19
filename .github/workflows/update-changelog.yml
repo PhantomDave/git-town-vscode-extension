@@ -1,0 +1,167 @@
+name: Update CHANGELOG
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get merged PR commits
+        id: get-commits
+        run: |
+          # Get the commit message of the last commit
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          
+          # Extract PR number from merge commit message (supports "Merge pull request #123" or "(#123)" formats)
+          PR_NUMBER=$(echo "$LAST_COMMIT_MSG" | grep -oP '(?:Merge pull request #|#|\(#)\K\d+' | head -1 || echo "")
+          
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found in commit message. Skipping changelog update."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if this is a changelog update PR (skip to avoid infinite loop)
+          if echo "$LAST_COMMIT_MSG" | grep -q "update CHANGELOG.md"; then
+            echo "This is a changelog update PR. Skipping to avoid infinite loop."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "skip=false" >> $GITHUB_OUTPUT
+          
+          # Get PR details using GitHub CLI with error handling
+          if ! gh pr view $PR_NUMBER --json title,author,url,mergedAt,commits > /tmp/pr_data.json 2>/dev/null; then
+            echo "Failed to fetch PR details for #$PR_NUMBER. Skipping changelog update."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          PR_TITLE=$(jq -r '.title' /tmp/pr_data.json)
+          PR_AUTHOR=$(jq -r '.author.login' /tmp/pr_data.json)
+          PR_URL=$(jq -r '.url' /tmp/pr_data.json)
+          
+          # Get the list of commits in the PR
+          COMMITS=$(jq -r '.commits[] | "- \(.messageHeadline)"' /tmp/pr_data.json)
+          
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "pr_author=$PR_AUTHOR" >> $GITHUB_OUTPUT
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          
+          # Save commits to a temporary file
+          echo "$COMMITS" > /tmp/pr_commits.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        if: steps.get-commits.outputs.skip != 'true'
+        run: |
+          PR_NUMBER="${{ steps.get-commits.outputs.pr_number }}"
+          PR_TITLE="${{ steps.get-commits.outputs.pr_title }}"
+          PR_AUTHOR="${{ steps.get-commits.outputs.pr_author }}"
+          PR_URL="${{ steps.get-commits.outputs.pr_url }}"
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          
+          # Read the commits
+          COMMITS=$(cat /tmp/pr_commits.txt)
+          
+          # Create a temporary file with the new changelog entry
+          cat > /tmp/new_entry.txt << EOF
+          
+          ### [$CURRENT_DATE] - PR #$PR_NUMBER
+          
+          **$PR_TITLE** by @$PR_AUTHOR
+          
+          $COMMITS
+          
+          [View PR]($PR_URL)
+          EOF
+          
+          # Check if CHANGELOG.md exists
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Change Log" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to the \"phantomdave-gittown-wrapper\" extension will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "## [Unreleased]" >> CHANGELOG.md
+          fi
+          
+          # Find the line number of [Unreleased] section
+          UNRELEASED_LINE=$(grep -n "## \[Unreleased\]" CHANGELOG.md | cut -d: -f1)
+          
+          if [ -z "$UNRELEASED_LINE" ]; then
+            # If no [Unreleased] section, add it after the header
+            {
+              head -n 5 CHANGELOG.md
+              echo ""
+              echo "## [Unreleased]"
+              cat /tmp/new_entry.txt
+              tail -n +6 CHANGELOG.md
+            } > /tmp/changelog_new.md
+          else
+            # Insert the new entry after the [Unreleased] line
+            {
+              head -n $UNRELEASED_LINE CHANGELOG.md
+              cat /tmp/new_entry.txt
+              tail -n +$((UNRELEASED_LINE + 1)) CHANGELOG.md
+            } > /tmp/changelog_new.md
+          fi
+          
+          mv /tmp/changelog_new.md CHANGELOG.md
+
+      - name: Check for changes
+        id: check-changes
+        if: steps.get-commits.outputs.skip != 'true'
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changes to CHANGELOG.md"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in CHANGELOG.md"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.get-commits.outputs.skip != 'true' && steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          PR_NUMBER="${{ steps.get-commits.outputs.pr_number }}"
+          BRANCH_NAME="changelog-update-pr-$PR_NUMBER"
+          
+          # Create a new branch
+          git checkout -b $BRANCH_NAME
+          
+          # Add and commit changes
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for PR #$PR_NUMBER"
+          
+          # Push the branch
+          git push origin $BRANCH_NAME
+          
+          # Create PR using GitHub CLI
+          gh pr create \
+            --title "docs: update CHANGELOG.md for PR #$PR_NUMBER" \
+            --body "This PR automatically updates the CHANGELOG.md file with the changes from PR #$PR_NUMBER." \
+            --base main \
+            --head $BRANCH_NAME
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,32 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple Git Town branch icon -->
+  <defs>
+    <style>
+      .icon-dark { fill: #2d2d2d; }
+      .icon-light { fill: #ffffff; }
+      @media (prefers-color-scheme: light) {
+        .branch-icon { fill: #2d2d2d; }
+      }
+      @media (prefers-color-scheme: dark) {
+        .branch-icon { fill: #ffffff; }
+      }
+    </style>
+  </defs>
+  
+  <!-- Center vertical line (main branch) -->
+  <line x1="64" y1="20" x2="64" y2="108" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Left branch -->
+  <line x1="64" y1="45" x2="35" y2="45" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <line x1="35" y1="45" x2="35" y2="70" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="35" cy="70" r="8" fill="currentColor"/>
+  
+  <!-- Right branch -->
+  <line x1="64" y1="83" x2="93" y2="83" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <line x1="93" y1="83" x2="93" y2="58" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="93" cy="58" r="8" fill="currentColor"/>
+  
+  <!-- Center nodes -->
+  <circle cx="64" cy="20" r="8" fill="currentColor"/>
+  <circle cx="64" cy="108" r="8" fill="currentColor"/>
+</svg>

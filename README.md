@@ -212,6 +212,25 @@ Please ensure:
 - Tests are updated for new features
 - Commit messages are clear and descriptive
 
+### Automated Workflows
+
+This repository includes several automated GitHub Actions workflows:
+
+#### CHANGELOG Updates
+When a PR is merged to `main`, a workflow automatically:
+1. Extracts the PR number, title, author, and commits
+2. Updates the CHANGELOG.md file with a new entry under the `[Unreleased]` section
+3. Creates a new PR with the CHANGELOG updates
+4. The workflow prevents infinite loops by skipping changelog update PRs
+
+#### Auto-Approval
+When CI checks complete successfully on PRs from `github-actions[bot]` or `dependabot[bot]`, a workflow:
+1. Waits for all required checks to pass
+2. Automatically approves the PR with a ✅ message
+3. Prevents duplicate approvals by checking existing reviews
+
+These workflows work together to streamline the maintenance process and keep the CHANGELOG up-to-date automatically.
+
 ## Extension Settings
 
 The extension contributes the following VS Code settings (editable in the Settings panel):

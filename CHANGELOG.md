@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+### [2025-12-19] - PR #33
+
+**Enhance CI workflows: improve auto-approve conditions and refine chan…** by @PhantomDave
+
+- Enhance CI workflows: improve auto-approve conditions and refine chan…
+- [WIP] Enhance CI workflows for auto-approve conditions and change det…
+
+[View PR](https://github.com/PhantomDave/git-town-vscode-extension/pull/33)
+
 ### [2025-12-19] - PR #30
 
 **Feature/added proper branch type detection** by @PhantomDave

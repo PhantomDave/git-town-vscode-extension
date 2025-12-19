@@ -13,7 +13,7 @@ name: Auto Approve
 
 on:
   workflow_run:
-    workflows: ["CI", "Main CI", "check"]
+    workflows: ["CI", "Main CI"]
     types: [completed]
 
 permissions:

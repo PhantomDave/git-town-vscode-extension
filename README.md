@@ -220,14 +220,17 @@ This repository includes several automated GitHub Actions workflows:
 When a PR is merged to `main`, a workflow automatically:
 1. Extracts the PR number, title, author, and commits
 2. Updates the CHANGELOG.md file with a new entry under the `[Unreleased]` section
-3. Creates a new PR with the CHANGELOG updates
-4. The workflow prevents infinite loops by skipping changelog update PRs
+3. Creates a new PR with the CHANGELOG updates (using the built-in `secrets.GITHUB_TOKEN`)
+4. The workflow prevents infinite loops by skipping changelog update PRs when determining whether to run again
+
+> **Note:** Because changelog update PRs are created with `secrets.GITHUB_TOKEN`, they do **not** trigger other GitHub Actions workflows (including CI and the auto-approval workflow). These changelog PRs require manual review and merging.
 
 #### Auto-Approval
 When CI checks complete successfully on PRs from `github-actions[bot]` or `dependabot[bot]`, a workflow:
 1. Waits for all required checks to pass
 2. Automatically approves the PR with a ✅ message
 3. Prevents duplicate approvals by checking existing reviews
+4. Verifies that the PR author matches the workflow actor for security
 
 These workflows work together to streamline the maintenance process and keep the CHANGELOG up-to-date automatically.
 

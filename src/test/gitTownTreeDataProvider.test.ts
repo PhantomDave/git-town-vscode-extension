@@ -32,8 +32,8 @@ suite('GitTownTreeDataProvider Tests', () => {
 
     const statusChildren = await provider.getChildren(statusItem as any);
     assert.strictEqual(statusChildren.length, 2, 'Should have 2 status children');
-    assert.ok(statusChildren[0].label?.includes('Current Branch'));
-    assert.ok(statusChildren[1].label?.includes('Uncommitted Changes'));
+    assert.ok(String(statusChildren[0].label).includes('Current Branch'));
+    assert.ok(String(statusChildren[1].label).includes('Uncommitted Changes'));
   });
 
   test('getChildren returns Workflows items', async () => {
@@ -44,10 +44,10 @@ suite('GitTownTreeDataProvider Tests', () => {
 
     const workflowChildren = await provider.getChildren(workflowsItem as any);
     assert.strictEqual(workflowChildren.length, 4, 'Should have 4 workflow commands');
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Sync')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Hack')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Ship')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Propose')));
+    assert.ok(workflowChildren.some((c: any) => String(c.label).includes('Sync')));
+    assert.ok(workflowChildren.some((c: any) => String(c.label).includes('Hack')));
+    assert.ok(workflowChildren.some((c: any) => String(c.label).includes('Ship')));
+    assert.ok(workflowChildren.some((c: any) => String(c.label).includes('Propose')));
   });
 
   test('refresh debounces multiple calls', async () => {

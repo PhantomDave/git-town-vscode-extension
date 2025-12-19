@@ -22,11 +22,53 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerTreeDataProvider('gittown-settings', settingsProvider)
 	);
 
+	// Do an initial refresh to populate views
+	gitTownProvider.refresh();
+	settingsProvider.refresh();
+
 	// Refresh the tree whenever command execution state changes so busy states stay visible
 	context.subscriptions.push(
 		onCommandStateChanged(() => {
 			gitTownProvider?.refresh();
 		})
+	);
+
+	// Watch for git branch changes and refresh views
+	const gitWatcher = vscode.workspace.createFileSystemWatcher('**/.git/refs/heads/**');
+	context.subscriptions.push(
+		gitWatcher.onDidCreate(() => {
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
+		}),
+		gitWatcher.onDidDelete(() => {
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
+		}),
+		gitWatcher.onDidChange(() => {
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
+		}),
+		gitWatcher
+	);
+
+	// Watch for git HEAD changes (branch checkout)
+	const headWatcher = vscode.workspace.createFileSystemWatcher('**/.git/HEAD');
+	context.subscriptions.push(
+		headWatcher.onDidChange(() => {
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
+		}),
+		headWatcher
+	);
+
+	// Watch for git config changes
+	const configWatcher = vscode.workspace.createFileSystemWatcher('**/.git/config');
+	context.subscriptions.push(
+		configWatcher.onDidChange(() => {
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
+		}),
+		configWatcher
 	);
 
 	// Register refresh command

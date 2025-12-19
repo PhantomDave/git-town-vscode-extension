@@ -169,6 +169,10 @@ jobs:
           echo "Combined status: $STATE"
           echo "Legacy statuses count: $STATUSES_COUNT"
 
+          # Allow merge if:
+          # 1. No checks are in progress or failed
+          # 2. Either legacy status is 'success' OR there are no legacy statuses (count=0)
+          #    (when only check runs exist without legacy statuses, the API returns 'pending')
           if [ "$IN_PROGRESS" -eq 0 ] && [ "$FAILED" -eq 0 ] && { [ "$STATE" = "success" ] || [ "$STATUSES_COUNT" -eq 0 ]; }; then
             echo "merge_ok=true" >> $GITHUB_OUTPUT
           else

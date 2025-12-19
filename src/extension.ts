@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName, normalizeBranchName } from './utils';
 import { enqueueCommandExecution, onCommandStateChanged } from './commandState';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
@@ -64,18 +64,29 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.hack', async () => {
 			const branchName = await vscode.window.showInputBox({
 				prompt: 'Enter new branch name',
+				validateInput: (input) => {
+					const { normalized } = normalizeBranchName(input);
+					return isValidGitBranchName(normalized) ? null : 'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".';
+				},
 				placeHolder: 'feature/my-feature'
 			});
 			if (branchName) {
-				// Validate branch name to prevent command injection
-				if (!isValidGitBranchName(branchName)) {
+				const { normalized, wasModified } = normalizeBranchName(branchName);
+				
+				// Show message if spaces were converted to hyphens
+				if (wasModified) {
+					vscode.window.showInformationMessage(`Branch name normalized: "${branchName}" → "${normalized}"`);
+				}
+				
+				//It is a double-check but better safe than sorry
+				if (!isValidGitBranchName(normalized)) {
 					vscode.window.showErrorMessage(
 						'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".'
 					);
 					return;
 				}
 				await runWorkflowCommand('phantomdave-gittown-wrapper.hack', 'Git Town hack', async () => {
-					await runGitTownCommand(`git town hack "${branchName}"`);
+					await runGitTownCommand(`git town hack "${normalized}"`);
 				});
 			}
 		}),

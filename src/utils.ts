@@ -14,6 +14,7 @@ interface CommandResult {
 let outputChannel: vscode.OutputChannel | undefined;
   const terminal = vscode.window.createTerminal({
     name: 'Git Town',
+    hideFromUser: true,
     cwd: getCwd()
   });
 
@@ -172,6 +173,15 @@ function isSafeGitTownCommand(command: string): boolean {
 
 export function sleep(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+export function normalizeBranchName(branchName: string): { normalized: string; wasModified: boolean } {
+  // Convert spaces to hyphens, following VSCode's pattern
+  const normalized = branchName.replace(/ /g, '-');
+  return {
+    normalized,
+    wasModified: normalized !== branchName
+  };
 }
 
 export function isValidGitBranchName(branchName: string): boolean {

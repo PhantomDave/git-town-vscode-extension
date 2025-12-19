@@ -23,10 +23,21 @@ jobs:
       - name: Check for changes in root
         id: check
         run: |
-          if git diff origin/main HEAD --quiet -- . ':!.github'; then
+          # Determine if any files changed outside top-level dot-folders (e.g., .github, .vscode)
+          # We only care about paths whose first path segment does NOT start with a dot.
+          git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+          CHANGED=$(git diff --name-only --diff-filter=ACMR origin/main...HEAD)
+          printf 'Changed files:\n%s\n' "$CHANGED"
+          if [ -z "$CHANGED" ]; then
             echo "any_changed=false" >> "$GITHUB_OUTPUT"
-          else
+            exit 0
+          fi
+          if printf '%s\n' "$CHANGED" | grep -Ev '^\\.' -q; then
+            # At least one file whose top-level segment does not start with '.'
             echo "any_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            # Only dot-folders/files changed
+            echo "any_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   lint:

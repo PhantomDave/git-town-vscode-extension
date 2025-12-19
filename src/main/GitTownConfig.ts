@@ -15,15 +15,13 @@ export interface GitTownConfig {
  * Uses child_process to execute git commands and parse output.
  */
 export async function getGitConfig(key: string): Promise<string> {
-    try {
-        const result = await runCommandInLocalFolder(`git config --get ${key}`);
-        if(result.error) {
-            return '';
-        }
-        return result.output?.trim() || '';
-    } catch (error) {
-        return '';
-    }
+  try {
+    const result = await runCommandInLocalFolder(`git config --get ${key}`);
+    return result.output?.trim() || '';
+  } catch {
+    // Config key not set - return empty string
+    return '';
+  }
 }
 
 /**
@@ -31,12 +29,13 @@ export async function getGitConfig(key: string): Promise<string> {
  * Used for configs that can have multiple values (e.g., perennial branches).
  */
 export async function getGitConfigAll(key: string): Promise<string[]> {
-    try {
-        const result = await runCommandInLocalFolder(`git config --get-all ${key}`);
-        return result.output?.split('\n').filter(line => line.trim() !== '') || [];
-    } catch (error) {
-        return [];
-    }
+  try {
+    const result = await runCommandInLocalFolder(`git config --get-all ${key}`);
+    return result.output?.split('\n').filter(line => line.trim() !== '') || [];
+  } catch {
+    // Config key not set - return empty array
+    return [];
+  }
 }
 
 /**
@@ -49,25 +48,25 @@ export async function getGitConfigAll(key: string): Promise<string[]> {
  * - git-town.parked-branches
  */
 export async function parseGitTownConfig(): Promise<GitTownConfig> {
-    const [
-        mainBranch,
-        perennialBranches,
-        perennialRegex,
-        prototypeNames,
-        parkedBranches
-    ] = await Promise.all([
-        getGitConfig('git-town.main-branch'),
-        getGitConfigAll('git-town.perennial-branches'),
-        getGitConfig('git-town.perennial-regex'),
-        getGitConfigAll('git-town.prototype-branches'),
-        getGitConfigAll('git-town.parked-branches')
-    ]);
+  const [
+    mainBranch,
+    perennialBranches,
+    perennialRegex,
+    prototypeNames,
+    parkedBranches
+  ] = await Promise.all([
+    getGitConfig('git-town.main-branch'),
+    getGitConfigAll('git-town.perennial-branches'),
+    getGitConfig('git-town.perennial-regex'),
+    getGitConfigAll('git-town.prototype-branches'),
+    getGitConfigAll('git-town.parked-branches')
+  ]);
 
-    return {
-        mainBranch: mainBranch || 'main',
-        perennialBranches: perennialBranches,
-        perennialRegex: perennialRegex || undefined,
-        prototypeNames: prototypeNames,
-        parkedBranches: parkedBranches
-    };
+  return {
+    mainBranch: mainBranch || 'main',
+    perennialBranches,
+    perennialRegex,
+    prototypeNames,
+    parkedBranches
+  };
 }

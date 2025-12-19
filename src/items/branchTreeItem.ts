@@ -51,14 +51,6 @@ export class BranchTreeItem extends vscode.TreeItem {
             tooltip.appendMarkdown(`Parent: ${this.branchInfo.parent}\n\n`);
         }
         
-        if (this.branchInfo.isPrototype) {
-            tooltip.appendMarkdown(`🧪 Prototype branch\n\n`);
-        }
-        
-        if (this.branchInfo.isParked) {
-            tooltip.appendMarkdown(`📦 Parked branch\n\n`);
-        }
-        
         return tooltip;
     }
 }

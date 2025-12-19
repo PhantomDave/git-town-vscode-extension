@@ -5,8 +5,7 @@ export enum BranchType {
     PERENNIAL = 'perennial',
     PROTOTYPE = 'prototype',
     PARKED = 'parked',
-    CURRENT = 'current',
-    UNKNOWN = 'unknown'
+    CURRENT = 'current'
 }
 
 /**
@@ -52,7 +51,7 @@ export function classifyBranch(
                 return BranchType.PERENNIAL;
             }
         } catch (error) {
-            console.error('Invalid perennial regex:', config.perennialRegex);
+            console.error('Invalid perennial regex:', config.perennialRegex, error);
         }
     }
 

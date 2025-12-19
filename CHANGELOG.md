@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+### [2025-12-19] - PR #30
+
+**Feature/added proper branch type detection** by @PhantomDave
+
+- Implement branch type detection and enhance tree view representation
+- Refactor getChildren method to streamline child item retrieval based …
+- Merge branch 'main' into feature/added-proper-branch-type-detection
+- Address PR review comments: code quality, performance, and test fixes…
+
+[View PR](https://github.com/PhantomDave/git-town-vscode-extension/pull/30)
+
 ### [2025-12-19] - PR #21
 
 **Chore/polishing** by @PhantomDave

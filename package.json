@@ -1,9 +1,10 @@
 {
   "name": "phantomdave-gittown-wrapper",
-  "displayName": "git town wrapper",
+  "displayName": "Git Town VSCode Extension",
   "description": "A Wrapper built around the git town git extension",
   "version": "0.0.1",
   "publisher": "PhantomDave",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.106.0"
   },
@@ -21,7 +22,7 @@
         {
           "id": "gittown-explorer",
           "title": "Git Town",
-          "icon": "$(git-branch)"
+          "icon": "icons/activity-bar-icon.png"
         }
       ]
     },

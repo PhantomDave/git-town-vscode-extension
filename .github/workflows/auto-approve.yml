@@ -1,0 +1,109 @@
+name: Auto Approve
+
+# This workflow automatically approves PRs from bots after CI passes successfully.
+# It triggers when "CI" or "Main CI" workflows complete on a pull request.
+#
+# For this to work with changelog PRs created by update-changelog.yml:
+#   - The update-changelog workflow must use a PAT (not GITHUB_TOKEN) to create PRs
+#   - This allows CI workflows to run on the created PR
+#   - Once CI completes successfully, this workflow approves the PR
+#
+# See .github/WORKFLOWS_SETUP.md for detailed setup instructions.
+
+on:
+  workflow_run:
+    workflows: ["CI", "Main CI"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    
+    # Only run if the workflow succeeded, was triggered by a PR, and is from the same repository
+    # Also verify that the PR author matches the workflow actor for security
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      (github.event.workflow_run.actor.login == 'github-actions[bot]' || 
+       github.event.workflow_run.actor.login == 'dependabot[bot]') &&
+      github.event.workflow_run.pull_requests != null &&
+      github.event.workflow_run.pull_requests.* != null &&
+      github.event.workflow_run.pull_requests[0].user.login == github.event.workflow_run.actor.login
+    
+    steps:
+      - name: Get PR number
+        id: get-pr
+        run: |
+          # Get the PR associated with this workflow run
+          PR_ERROR_FILE=$(mktemp)
+          if ! PR_DATA=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}" 2>"$PR_ERROR_FILE"); then
+            echo "Failed to fetch workflow run data:"
+            cat "$PR_ERROR_FILE"
+            rm -f "$PR_ERROR_FILE"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          rm -f "$PR_ERROR_FILE"
+          
+          # Get all PRs associated with this workflow run
+          PR_COUNT=$(echo "$PR_DATA" | jq -r '.pull_requests | length')
+          
+          if [ "$PR_COUNT" -eq 0 ]; then
+            echo "No PRs associated with this workflow run"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          if [ "$PR_COUNT" -gt 1 ]; then
+            echo "Warning: Multiple PRs ($PR_COUNT) found for this workflow run, using the first one"
+          fi
+          
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.pull_requests[0].number')
+          
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "PR number is null or empty"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+          else
+            echo "Found PR #$PR_NUMBER"
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if PR is already approved
+        id: check-approval
+        if: steps.get-pr.outputs.pr_number != ''
+        run: |
+          # Check if this bot has already approved the PR
+          REVIEWS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/pulls/${{ steps.get-pr.outputs.pr_number }}/reviews" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and .state == "APPROVED") | .id')
+          
+          if [ -n "$REVIEWS" ]; then
+            echo "PR already approved by this bot"
+            echo "already_approved=true" >> $GITHUB_OUTPUT
+          else
+            echo "already_approved=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve Pull Request
+        if: |
+          steps.get-pr.outputs.pr_number != '' && 
+          steps.check-approval.outputs.already_approved == 'false'
+        run: |
+          gh pr review ${{ steps.get-pr.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --approve \
+            --body "Auto-approved: All required checks passed ✅"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

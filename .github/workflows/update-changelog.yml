@@ -1,0 +1,238 @@
+name: Update CHANGELOG
+
+# This workflow automatically updates CHANGELOG.md when PRs are merged to main
+# Expected CHANGELOG.md format:
+#   - Must contain an "## [Unreleased]" section where new entries will be added
+#   - New entries are formatted as: ### [YYYY-MM-DD] - PR #123
+#   - Each entry includes: PR title, author, commit list, and PR link
+#
+# IMPORTANT: To enable auto-approval of changelog PRs, you must configure a Personal Access Token:
+#   1. Create a GitHub PAT with 'repo' and 'workflow' scopes at: https://github.com/settings/tokens
+#   2. Add it as a repository secret named 'PAT' or 'GH_PAT'
+#   3. The PAT allows the created PR to trigger CI workflows, which then triggers auto-approve
+#
+# Without a PAT, the changelog PR will be created but won't trigger CI workflows (GitHub security feature).
+# This means the auto-approve workflow won't run and the PR will require manual review and merge.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PAT if available (to trigger workflows), otherwise fall back to GITHUB_TOKEN
+          # Note: PRs created with GITHUB_TOKEN won't trigger workflow runs due to GitHub's security model
+          token: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get merged PR commits
+        id: get-commits
+        run: |
+          # Get the commit SHA of the last commit
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Processing commit: $COMMIT_SHA"
+          
+          # Get the commit message and author for infinite loop detection
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          LAST_COMMIT_AUTHOR=$(git log -1 --pretty=%an)
+          
+          # Check if this is a changelog update commit (skip to avoid infinite loop)
+          # Skip if the commit was made by the GitHub Actions bot or matches a
+          # case-insensitive changelog-update pattern.
+          if [ "$LAST_COMMIT_AUTHOR" = "github-actions[bot]" ] || \
+             echo "$LAST_COMMIT_MSG" | grep -qiE '^[[:space:]]*docs:[[:space:]]*update changelog\.md for pr #[0-9]+'; then
+            echo "This is a changelog update commit. Skipping to avoid infinite loop."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Use GitHub API to find associated PR for this commit
+          # Use the same token that was used for checkout
+          PR_DATA=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
+            --jq '.[0]' 2>/dev/null || echo "null")
+          
+          if [ "$PR_DATA" = "null" ] || [ -z "$PR_DATA" ]; then
+            # Fallback to parsing commit message
+            # 1) Prefer the standard GitHub merge commit format: "Merge pull request #123 from ..."
+            PR_NUMBER=$(echo "$LAST_COMMIT_MSG" | grep -oP 'Merge pull request #\K\d+(?= from )' | head -1 || true)
+            
+            # 2) Fallback: handle "(#123)"-style references often used in squash merges,
+            #    but avoid matching arbitrary "#123" issue references.
+            if [ -z "$PR_NUMBER" ]; then
+              PR_NUMBER=$(echo "$LAST_COMMIT_MSG" | grep -oP '\(#\K\d+' | head -1 || true)
+            fi
+            
+            if [ -z "$PR_NUMBER" ]; then
+              echo "No PR associated with this commit. Skipping changelog update."
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          fi
+          
+          echo "Found PR #$PR_NUMBER"
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "skip=false" >> $GITHUB_OUTPUT
+          
+          # Get PR details using GitHub CLI with error handling
+          if ! gh pr view $PR_NUMBER --json title,author,url,mergedAt,commits > /tmp/pr_data.json 2>/dev/null; then
+            echo "Failed to fetch PR details for #$PR_NUMBER. Skipping changelog update."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          PR_TITLE=$(jq -r '.title' /tmp/pr_data.json)
+          PR_AUTHOR=$(jq -r '.author.login' /tmp/pr_data.json)
+          PR_URL=$(jq -r '.url' /tmp/pr_data.json)
+          
+          # Get the list of commits in the PR
+          COMMITS=$(jq -r '.commits[] | "- \(.messageHeadline)"' /tmp/pr_data.json)
+          
+          # Use EOF delimiter pattern for multiline strings to handle special characters
+          {
+            echo "pr_title<<EOF"
+            echo "$PR_TITLE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "pr_author=$PR_AUTHOR" >> "$GITHUB_OUTPUT"
+          {
+            echo "pr_url<<EOF"
+            echo "$PR_URL"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          
+          # Save commits to a temporary file
+          echo "$COMMITS" > /tmp/pr_commits.txt
+        env:
+          # Use the same token for consistency
+          GH_TOKEN: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        if: steps.get-commits.outputs.skip != 'true'
+        run: |
+          PR_NUMBER="${{ steps.get-commits.outputs.pr_number }}"
+          PR_TITLE="${{ steps.get-commits.outputs.pr_title }}"
+          PR_AUTHOR="${{ steps.get-commits.outputs.pr_author }}"
+          PR_URL="${{ steps.get-commits.outputs.pr_url }}"
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          
+          # Read the commits
+          COMMITS=$(cat /tmp/pr_commits.txt)
+          
+          # Create a temporary file with the new changelog entry
+          # Use printf and echo to prevent variable expansion issues
+          {
+            echo
+            echo "### [$CURRENT_DATE] - PR #$PR_NUMBER"
+            echo
+            echo "**$PR_TITLE** by @$PR_AUTHOR"
+            echo
+            printf '%s\n' "$COMMITS"
+            echo
+            echo "[View PR]($PR_URL)"
+          } > /tmp/new_entry.txt
+          
+          # Check if CHANGELOG.md exists
+          if [ ! -f CHANGELOG.md ]; then
+            # Extract package name from package.json if available
+            PACKAGE_NAME=$(jq -r '.name' package.json 2>/dev/null || echo "this project")
+            echo "# Change Log" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to the \"$PACKAGE_NAME\" extension will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "## [Unreleased]" >> CHANGELOG.md
+          fi
+          
+          # Find the line number of [Unreleased] section
+          UNRELEASED_LINE=$(grep -n "## \[Unreleased\]" CHANGELOG.md | cut -d: -f1 || true)
+          
+          if [ -z "$UNRELEASED_LINE" ]; then
+            # If no [Unreleased] section, find the end of the header and add it there
+            # Look for the first ## heading or add after the header comment
+            FIRST_HEADING=$(grep -n "^## " CHANGELOG.md | head -1 | cut -d: -f1 || true)
+            if [ -z "$FIRST_HEADING" ]; then
+              # No headings found, append to end
+              {
+                cat CHANGELOG.md
+                echo ""
+                echo "## [Unreleased]"
+                cat /tmp/new_entry.txt
+              } > /tmp/changelog_new.md
+            else
+              # Insert before first heading
+              {
+                head -n $((FIRST_HEADING - 1)) CHANGELOG.md
+                echo ""
+                echo "## [Unreleased]"
+                cat /tmp/new_entry.txt
+                echo ""
+                tail -n +$FIRST_HEADING CHANGELOG.md
+              } > /tmp/changelog_new.md
+            fi
+          else
+            # Insert the new entry after the [Unreleased] line
+            {
+              head -n $UNRELEASED_LINE CHANGELOG.md
+              cat /tmp/new_entry.txt
+              tail -n +$((UNRELEASED_LINE + 1)) CHANGELOG.md
+            } > /tmp/changelog_new.md
+          fi
+          
+          mv /tmp/changelog_new.md CHANGELOG.md
+
+      - name: Check for changes
+        id: check-changes
+        if: steps.get-commits.outputs.skip != 'true'
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changes to CHANGELOG.md"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in CHANGELOG.md"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.get-commits.outputs.skip != 'true' && steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          PR_NUMBER="${{ steps.get-commits.outputs.pr_number }}"
+          BRANCH_NAME="changelog-update-pr-${PR_NUMBER}"
+          
+          # Create or reset the branch (handles case where branch already exists)
+          git checkout -B "$BRANCH_NAME"
+          
+          # Add and commit changes
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG.md for PR #${PR_NUMBER}"
+          
+          # Push the branch
+          git push origin "$BRANCH_NAME"
+          
+          # Create PR using GitHub CLI
+          # Use PAT if available to allow workflow triggers, otherwise use GITHUB_TOKEN
+          gh pr create \
+            --title "docs: update CHANGELOG.md for PR #${PR_NUMBER}" \
+            --body "This PR automatically updates the CHANGELOG.md file with the changes from PR #${PR_NUMBER}." \
+            --base main \
+            --head "$BRANCH_NAME"
+        env:
+          GH_TOKEN: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}

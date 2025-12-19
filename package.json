@@ -15,6 +15,10 @@
     "type": "git",
     "url": "https://github.com/PhantomDave/git-town-vscode-extension.git"
   },
+  "activationEvents": [
+    "onView:gittown-view",
+    "onView:gittown-settings"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {

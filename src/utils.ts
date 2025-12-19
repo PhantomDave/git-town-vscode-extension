@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
+import { getGitConfig } from './main/GitTownConfig';
 
 const execAsync = promisify(exec);
 
@@ -81,7 +82,7 @@ function cleanAnsiCodes(text: string): string {
   return cleaned;
 }
 
-async function runCommandInLocalFolder(command: string): Promise<CommandResult> {
+export async function runCommandInLocalFolder(command: string): Promise<CommandResult> {
   const cwd = getCwd();
   try {
     const { stdout, stderr } = await execAsync(command, { 
@@ -144,13 +145,45 @@ export async function isGitRepository(): Promise<boolean> {
   }
 }
 
+/**
+ * Gets the currently checked out branch name.
+ */
 export async function getCurrentBranch(): Promise<string> {
   try {
     const result = await runCommandInLocalFolder('git branch --show-current');
-    return result.output || 'unknown';
+    return result.output?.trim() || '';
   } catch (error) {
-    return 'unknown';
+    return '';
   }
+}
+
+/**
+ * Gets list of all local branches.
+ * Returns array of branch names.
+ */
+export async function getAllBranches(): Promise<string[]> {
+  try {
+    const result = await runCommandInLocalFolder('git branch --format="%(refname:short)"');
+    return result.output?.split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== '') || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
+ * Gets the parent branch for a given branch using git-town config.
+ * Git-town stores parent relationships in git config as:
+ * git-town-branch.<branch-name>.parent
+ */
+export async function getBranchParent(branchName: string): Promise<string | undefined> {
+    try {
+        const parent = await getGitConfig(`git-town-branch.${branchName}.parent`);
+        return parent || undefined;
+    } catch (error) {
+        return undefined;
+    }
 }
 
 export async function getUncommittedChangesCount(): Promise<number> {

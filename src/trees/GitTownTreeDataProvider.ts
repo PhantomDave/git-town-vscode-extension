@@ -1,93 +1,115 @@
 import * as vscode from 'vscode';
-import { GitTownItem } from '../items/gitTownItem';
-import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount, debounce } from '../utils';
-import { executingCommands, isAnyCommandExecuting } from '../commandState';
+import { getAllBranchInfo } from '../branches/BranchInfo';
+import { BranchType } from '../branches/BranchType';
+import { CategoryTreeItem } from '../items/categoryTreeItem';
+import { BranchTreeItem } from '../items/branchTreeItem';
 
-export enum TreeItemType {
-    Status = 'Status',
-    Branches = 'Branches',
-    Workflows = 'Workflows'
-}
+/**
+ * VS Code TreeDataProvider implementation.
+ * This interface is required to populate tree views.
+ */
+export class GitTownTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = 
+        new vscode.EventEmitter<vscode.TreeItem | undefined>();
+    
+    /**
+     * Event that fires when tree data changes.
+     * VS Code listens to this event to know when to refresh the tree.
+     */
+    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = 
+        this._onDidChangeTreeData.event;
 
-export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<GitTownItem | undefined | null | void> = new vscode.EventEmitter<GitTownItem | undefined | null | void>();
-    readonly onDidChangeTreeData: vscode.Event<GitTownItem | undefined | null | void> = this._onDidChangeTreeData.event;
-    private readonly debouncedRefresh = debounce(() => this._onDidChangeTreeData.fire(), 500);
-
+    /**
+     * Triggers tree refresh.
+     * Call this after operations that change branch state.
+     */
     refresh(): void {
-        this.debouncedRefresh();
+        this._onDidChangeTreeData.fire(undefined);
     }
 
-    getTreeItem(element: GitTownItem): vscode.TreeItem {
+    /**
+     * Required by TreeDataProvider interface.
+     * Returns TreeItem representation for display.
+     */
+    getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
         return element;
     }
 
-    async getChildren(element?: GitTownItem): Promise<GitTownItem[]> {
+    /**
+     * Required by TreeDataProvider interface.
+     * Returns children for the tree hierarchy.
+     * 
+     * @param element - Parent element (undefined = root level)
+     * @returns Array of child TreeItems
+     */
+    async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
+        // Root level: return categories
         if (!element) {
-            // Root level items
-            return [
-                new GitTownItem('Status', vscode.TreeItemCollapsibleState.Collapsed, undefined, TreeItemType.Status),
-                new GitTownItem('Branches', vscode.TreeItemCollapsibleState.Collapsed, undefined, TreeItemType.Branches),
-                new GitTownItem('Workflows', vscode.TreeItemCollapsibleState.Expanded, undefined, TreeItemType.Workflows),
-            ];
+            return this.getCategoryItems();
         }
 
-        // Handle children based on parent type
-        if (element.itemType === TreeItemType.Status) {
-            const [currentBranch, changesCount] = await Promise.all([
-                getCurrentBranch(),
-                getUncommittedChangesCount()
-            ]);
-            
-            return [
-                new GitTownItem(`Current Branch: ${currentBranch}`, vscode.TreeItemCollapsibleState.None),
-                new GitTownItem(`Uncommitted Changes: ${changesCount}`, vscode.TreeItemCollapsibleState.None),
-            ];
+        // Category level: return branches in that category
+        if (element instanceof CategoryTreeItem) {
+            return element.branches.map(branch => new BranchTreeItem(branch));
         }
 
-        if (element.itemType === TreeItemType.Branches) {
-            const [branches, currentBranch] = await Promise.all([
-                getGitTownBranches(),
-                getCurrentBranch()
-            ]);
-            
-            return branches.map(branch => {
-                const item = new GitTownItem(branch, vscode.TreeItemCollapsibleState.None, undefined, undefined, true);
-                if (branch === currentBranch) {
-                    item.description = '(current)';
-                    item.iconPath = new vscode.ThemeIcon('check');
-                }
-                return item;
-            });
-        }
-
-        if (element.itemType === TreeItemType.Workflows) {
-            return [
-                this.createWorkflowItem('Sync', 'phantomdave-gittown-wrapper.sync'),
-                this.createWorkflowItem('Hack (New Branch)', 'phantomdave-gittown-wrapper.hack'),
-                this.createWorkflowItem('Ship (Merge & Delete)', 'phantomdave-gittown-wrapper.ship'),
-                this.createWorkflowItem('Propose (Create PR)', 'phantomdave-gittown-wrapper.propose'),
-            ];
-        }
-
+        // Branch level: no children
         return [];
     }
 
-    private createWorkflowItem(label: string, commandId: string): GitTownItem {
-        const item = new GitTownItem(label, vscode.TreeItemCollapsibleState.None, commandId);
-        const busy = isAnyCommandExecuting();
-        const isRunning = executingCommands.has(commandId);
+    /**
+     * Creates category items with branches grouped by type.
+     */
+    private async getCategoryItems(): Promise<CategoryTreeItem[]> {
+        try {
+            const branchInfos = await getAllBranchInfo();
+            
+            // Group branches by type
+            const currentBranches = branchInfos.filter(b => b.isCurrent);
+            const featureBranches = branchInfos.filter(b => 
+                b.type === BranchType.FEATURE && !b.isCurrent
+            );
+            const perennialBranches = branchInfos.filter(b => 
+                b.type === BranchType.PERENNIAL && !b.isCurrent
+            );
+            const prototypeBranches = branchInfos.filter(b => 
+                b.type === BranchType.PROTOTYPE && !b.isCurrent
+            );
+            const parkedBranches = branchInfos.filter(b => 
+                b.type === BranchType.PARKED && !b.isCurrent
+            );
 
-        if (isRunning) {
-            item.iconPath = new vscode.ThemeIcon('sync~spin');
-            item.description = 'Running…';
-            item.tooltip = `${label} (running)`;
-            item.command = undefined;
-        } else if (busy) {
-            item.command = undefined;
-            item.tooltip = `${label} (waiting for current command to finish)`;
+            const categories: CategoryTreeItem[] = [];
+
+            // Always show current branch first
+            if (currentBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Current Branch', currentBranches));
+            }
+
+            // Add feature branches
+            if (featureBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Feature Branches', featureBranches));
+            }
+
+            // Add perennial branches
+            if (perennialBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Perennial Branches', perennialBranches));
+            }
+
+            // Add prototype branches if any
+            if (prototypeBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Prototype Branches', prototypeBranches));
+            }
+
+            // Add parked branches if any
+            if (parkedBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Parked Branches', parkedBranches));
+            }
+
+            return categories;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to load Git Town data: ${error}`);
+            return [];
         }
-
-        return item;
     }
 }

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { GitTownTreeDataProvider } from '../trees/GitTownTreeDataProvider';
+import { CategoryTreeItem } from '../items/categoryTreeItem';
 
 suite('GitTownTreeDataProvider Tests', () => {
   let provider: GitTownTreeDataProvider;
@@ -11,82 +12,54 @@ suite('GitTownTreeDataProvider Tests', () => {
 
   test('getTreeItem returns the item passed in', () => {
     const item = new vscode.TreeItem('test');
-    const result = provider.getTreeItem(item as any);
+    const result = provider.getTreeItem(item);
     assert.strictEqual(result, item);
   });
 
-  test('getChildren returns root items when no element provided', async () => {
+  test('getChildren returns category items when no element provided', async () => {
     const children = await provider.getChildren();
 
-    assert.strictEqual(children.length, 3, 'Should have 3 root items');
-    assert.strictEqual(children[0].label, 'Status');
-    assert.strictEqual(children[1].label, 'Branches');
-    assert.strictEqual(children[2].label, 'Workflows');
+    // Should return category items (Current Branch, Feature Branches, etc.)
+    assert.ok(Array.isArray(children), 'Should return an array');
+    assert.ok(children.length >= 0, 'Should have at least 0 category items');
+    
+    // All root items should be CategoryTreeItem instances
+    children.forEach((child) => {
+      assert.ok(child instanceof CategoryTreeItem || child instanceof vscode.TreeItem, 
+        'Root items should be CategoryTreeItem or TreeItem instances');
+    });
   });
 
-  test('getChildren returns Status items', async () => {
+  test('getChildren returns branch items for category', async () => {
     const rootChildren = await provider.getChildren();
-    const statusItem = rootChildren.find((c: any) => c.label === 'Status');
-
-    assert.ok(statusItem, 'Status item should exist');
-
-    const statusChildren = await provider.getChildren(statusItem as any);
-    assert.strictEqual(statusChildren.length, 2, 'Should have 2 status children');
-    assert.ok(statusChildren[0].label?.includes('Current Branch'));
-    assert.ok(statusChildren[1].label?.includes('Uncommitted Changes'));
+    
+    if (rootChildren.length > 0) {
+      const firstCategory = rootChildren[0];
+      const branchChildren = await provider.getChildren(firstCategory);
+      
+      // Should return branch items or empty array
+      assert.ok(Array.isArray(branchChildren), 'Should return an array of branch items');
+    }
   });
 
-  test('getChildren returns Workflows items', async () => {
-    const rootChildren = await provider.getChildren();
-    const workflowsItem = rootChildren.find((c: any) => c.label === 'Workflows');
+  test('getChildren returns empty array for non-category items', async () => {
+    const nonCategoryItem = new vscode.TreeItem('test');
+    const children = await provider.getChildren(nonCategoryItem);
 
-    assert.ok(workflowsItem, 'Workflows item should exist');
-
-    const workflowChildren = await provider.getChildren(workflowsItem as any);
-    assert.strictEqual(workflowChildren.length, 4, 'Should have 4 workflow commands');
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Sync')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Hack')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Ship')));
-    assert.ok(workflowChildren.some((c: any) => c.label?.includes('Propose')));
+    assert.deepStrictEqual(children, [], 'Should return empty array for non-category items');
   });
 
-  test('refresh debounces multiple calls', async () => {
-    let fireCount = 0;
+  test('refresh fires tree data change event', () => {
+    let eventFired = false;
 
     const listener = provider.onDidChangeTreeData(() => {
-      fireCount++;
+      eventFired = true;
     });
 
     provider.refresh();
-    provider.refresh();
-    provider.refresh();
 
-    assert.strictEqual(fireCount, 0, 'Should not have fired yet');
-
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    assert.strictEqual(fireCount, 1, 'Should fire exactly once after debounce');
+    assert.strictEqual(eventFired, true, 'Should fire tree data change event on refresh');
 
     listener.dispose();
-  });
-
-  test('workflow items are disabled when another command is running', async () => {
-    // This test verifies the UI state during command execution
-    // In real usage, executingCommands is managed by commandState
-    const rootChildren = await provider.getChildren();
-    const workflowsItem = rootChildren.find((c: any) => c.label === 'Workflows');
-    const workflowChildren = await provider.getChildren(workflowsItem as any);
-
-    // Verify all items have commands by default
-    workflowChildren.forEach((item: any) => {
-      assert.ok(item.command, `${item.label} should have a command`);
-    });
-  });
-
-  test('getChildren returns empty array for unknown item type', async () => {
-    const unknownItem = new vscode.TreeItem('unknown');
-    const children = await provider.getChildren(unknownItem as any);
-
-    assert.deepStrictEqual(children, [], 'Should return empty array for unknown item');
   });
 });

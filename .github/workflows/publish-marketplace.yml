@@ -2,17 +2,7 @@ name: Publish to VS Code Marketplace
 
 on:
   release:
-    types: [published, created]
-  workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Set to true to skip the publish step and only build"
-        required: false
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+    types: [published]
 
 permissions:
   contents: read
@@ -33,6 +23,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Set version from release tag
+        if: github.event_name == 'release'
+        run: |
+          VERSION=${{ github.event.release.tag_name }}
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          npm version $VERSION --no-git-tag-version
 
       - name: Build extension
         run: npm run package

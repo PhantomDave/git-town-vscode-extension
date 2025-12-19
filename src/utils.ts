@@ -12,6 +12,18 @@ interface CommandResult {
 
 
 let outputChannel: vscode.OutputChannel | undefined;
+let terminal: vscode.Terminal | undefined;
+
+function getTerminal(): vscode.Terminal {
+  if (!terminal) {
+    terminal = vscode.window.createTerminal({
+      name: 'Git Town',
+      hideFromUser: true,
+      cwd: getCwd()
+    });
+  }
+  return terminal;
+}
 
 export function getOutputChannel(): vscode.OutputChannel {
   if (!outputChannel) {
@@ -166,8 +178,36 @@ function isSafeGitTownCommand(command: string): boolean {
   return trimmed.startsWith('git town');
 }
 
+function isSafeGitCommand(command: string): boolean {
+  const trimmed = command.trim();
+  // Only allow specific safe git commands
+  const allowedCommands = ['git checkout', 'git switch'];
+  return allowedCommands.some(cmd => trimmed.startsWith(cmd));
+}
+
+export async function runGitCommand(command: string): Promise<void> {
+  const safeCommand = command.trim();
+  if (!isSafeGitCommand(safeCommand)) {
+    getOutputChannel().appendLine(`Refused to run unsafe git command: "${command}"`);
+    vscode.window.showErrorMessage('The git command is not valid or may be unsafe and was not executed.');
+    return;
+  }
+  const term = getTerminal();
+  term.show();
+  term.sendText(safeCommand);
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+export function normalizeBranchName(branchName: string): { normalized: string; wasModified: boolean } {
+  // Convert spaces to hyphens, following VSCode's pattern
+  const normalized = branchName.replace(/ /g, '-');
+  return {
+    normalized,
+    wasModified: normalized !== branchName
+  };
 }
 
 export function isValidGitBranchName(branchName: string): boolean {
@@ -211,13 +251,9 @@ export async function runGitTownCommand(command: string): Promise<void> {
     vscode.window.showErrorMessage('The Git Town command is not valid or may be unsafe and was not executed.');
     return;
   }
-
-  const terminal = vscode.window.createTerminal({
-    name: 'Git Town',
-    cwd: getCwd()
-  });
-  terminal.show();
-  terminal.sendText(safeCommand);
+  const term = getTerminal();
+  term.show();
+  term.sendText(safeCommand);
 }
 
 export function debounce<T extends (...args: unknown[]) => void>(func: T, waitMs: number): (...args: Parameters<T>) => void {

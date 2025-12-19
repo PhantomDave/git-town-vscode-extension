@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, runGitCommand, getOutputChannel, sleep, isValidGitBranchName, normalizeBranchName } from './utils';
 import { enqueueCommandExecution, onCommandStateChanged } from './commandState';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
@@ -33,8 +33,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.refresh', async () => {
 			outputChannel.appendLine('Refreshing Git Town views...');
-			gitTownProvider.refresh();
-			settingsProvider.refresh();
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
 			vscode.window.showInformationMessage('Git Town view refreshed!');
 		})
 	);
@@ -47,13 +47,33 @@ export async function activate(context: vscode.ExtensionContext) {
 	) => {
 		try {
 			await enqueueCommandExecution(commandId, action);
-			gitTownProvider.refresh();
-			settingsProvider.refresh();
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			vscode.window.showErrorMessage(`${friendlyName} failed: ${message}`);
 		}
 	};
+
+	// Register show output command for Settings view
+	context.subscriptions.push(
+		vscode.commands.registerCommand('phantomdave-gittown-wrapper.showOutput', async () => {
+			const channel = getOutputChannel();
+			channel.show(true);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('phantomdave-gittown-wrapper.checkoutBranch', async (item) => {
+			if (!item || !item.label) {
+				vscode.window.showErrorMessage('No branch selected');
+				return;
+			}
+			await runWorkflowCommand('phantomdave-gittown-wrapper.checkoutBranch', 'Git checkout', async () => {
+				await runGitCommand(`git checkout "${item.label}"`);
+			});
+		})
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.sync', async () => {
@@ -62,20 +82,27 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.hack', async () => {
+			const validateBranchName = (input: string): string | null => {
+				const { normalized } = normalizeBranchName(input);
+				return isValidGitBranchName(normalized) ? null : 'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".';
+			};
+
 			const branchName = await vscode.window.showInputBox({
 				prompt: 'Enter new branch name',
+				validateInput: validateBranchName,
 				placeHolder: 'feature/my-feature'
 			});
+
 			if (branchName) {
-				// Validate branch name to prevent command injection
-				if (!isValidGitBranchName(branchName)) {
-					vscode.window.showErrorMessage(
-						'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".'
-					);
-					return;
+				const { normalized, wasModified } = normalizeBranchName(branchName);
+				
+				// Show message if spaces were converted to hyphens
+				if (wasModified) {
+					vscode.window.showInformationMessage(`Branch name normalized: "${branchName}" → "${normalized}"`);
 				}
+				
 				await runWorkflowCommand('phantomdave-gittown-wrapper.hack', 'Git Town hack', async () => {
-					await runGitTownCommand(`git town hack "${branchName}"`);
+					await runGitTownCommand(`git town hack "${normalized}"`);
 				});
 			}
 		}),

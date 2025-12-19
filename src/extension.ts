@@ -7,6 +7,24 @@ import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
 let gitTownProvider: GitTownTreeDataProvider;
 let settingsProvider: SettingsTreeDataProvider;
 
+/**
+ * Debounces a function to prevent excessive calls.
+ * @param fn Function to debounce
+ * @param delay Delay in milliseconds
+ */
+function debounce(fn: () => void, delay: number): () => void {
+  let timeoutId: NodeJS.Timeout | undefined;
+  return () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn();
+      timeoutId = undefined;
+    }, delay);
+  };
+}
+
 // This method is called when your extension is activated
 export async function activate(context: vscode.ExtensionContext) {
 	const outputChannel = getOutputChannel();
@@ -33,43 +51,44 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	// Debounced refresh function to prevent excessive updates
+	const debouncedRefresh = debounce(() => {
+		gitTownProvider?.refresh();
+		settingsProvider?.refresh();
+	}, 300);
+
 	// Watch for git branch changes and refresh views
-	const gitWatcher = vscode.workspace.createFileSystemWatcher('**/.git/refs/heads/**');
-	context.subscriptions.push(
-		gitWatcher.onDidCreate(() => {
-			gitTownProvider?.refresh();
-			settingsProvider?.refresh();
-		}),
-		gitWatcher.onDidDelete(() => {
-			gitTownProvider?.refresh();
-			settingsProvider?.refresh();
-		}),
-		gitWatcher.onDidChange(() => {
-			gitTownProvider?.refresh();
-			settingsProvider?.refresh();
-		}),
-		gitWatcher
-	);
+	if (vscode.workspace.workspaceFolders) {
+		for (const folder of vscode.workspace.workspaceFolders) {
+			const gitWatcher = vscode.workspace.createFileSystemWatcher(
+				new vscode.RelativePattern(folder, '.git/refs/heads/**')
+			);
+			context.subscriptions.push(
+				gitWatcher.onDidCreate(debouncedRefresh),
+				gitWatcher.onDidDelete(debouncedRefresh),
+				gitWatcher.onDidChange(debouncedRefresh),
+				gitWatcher
+			);
 
-	// Watch for git HEAD changes (branch checkout)
-	const headWatcher = vscode.workspace.createFileSystemWatcher('**/.git/HEAD');
-	context.subscriptions.push(
-		headWatcher.onDidChange(() => {
-			gitTownProvider?.refresh();
-			settingsProvider?.refresh();
-		}),
-		headWatcher
-	);
+			// Watch for git HEAD changes (branch checkout)
+			const headWatcher = vscode.workspace.createFileSystemWatcher(
+				new vscode.RelativePattern(folder, '.git/HEAD')
+			);
+			context.subscriptions.push(
+				headWatcher.onDidChange(debouncedRefresh),
+				headWatcher
+			);
 
-	// Watch for git config changes
-	const configWatcher = vscode.workspace.createFileSystemWatcher('**/.git/config');
-	context.subscriptions.push(
-		configWatcher.onDidChange(() => {
-			gitTownProvider?.refresh();
-			settingsProvider?.refresh();
-		}),
-		configWatcher
-	);
+			// Watch for git config changes
+			const configWatcher = vscode.workspace.createFileSystemWatcher(
+				new vscode.RelativePattern(folder, '.git/config')
+			);
+			context.subscriptions.push(
+				configWatcher.onDidChange(debouncedRefresh),
+				configWatcher
+			);
+		}
+	}
 
 	// Register refresh command
 	context.subscriptions.push(

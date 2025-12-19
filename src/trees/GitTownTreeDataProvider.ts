@@ -1,17 +1,8 @@
 import * as vscode from 'vscode';
-import { GitTownItem } from '../items/gitTownItem';
-import { getGitTownBranches, getCurrentBranch, getUncommittedChangesCount, debounce } from '../utils';
-import { executingCommands, isAnyCommandExecuting } from '../commandState';
-import { BranchInfo, getAllBranchInfo } from '../branches/BranchInfo';
+import { getAllBranchInfo } from '../branches/BranchInfo';
 import { BranchType } from '../branches/BranchType';
 import { CategoryTreeItem } from '../items/categoryTreeItem';
 import { BranchTreeItem } from '../items/branchTreeItem';
-
-export enum TreeItemType {
-    Status = 'Status',
-    Branches = 'Branches',
-    Workflows = 'Workflows'
-}
 
 /**
  * VS Code TreeDataProvider implementation.
@@ -27,8 +18,6 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<vscode.T
      */
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = 
         this._onDidChangeTreeData.event;
-
-    constructor() {}
 
     /**
      * Triggers tree refresh.
@@ -75,54 +64,50 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<vscode.T
         try {
             const branchInfos = await getAllBranchInfo();
             
-            console.log('Got branch infos:', branchInfos);
-            
             // Group branches by type
             const currentBranches = branchInfos.filter(b => b.isCurrent);
-        const featureBranches = branchInfos.filter(b => 
-            b.type === BranchType.FEATURE && !b.isCurrent
-        );
-        const perennialBranches = branchInfos.filter(b => 
-            b.type === BranchType.PERENNIAL && !b.isCurrent
-        );
-        const prototypeBranches = branchInfos.filter(b => 
-            b.type === BranchType.PROTOTYPE && !b.isCurrent
-        );
-        const parkedBranches = branchInfos.filter(b => 
-            b.type === BranchType.PARKED && !b.isCurrent
-        );
+            const featureBranches = branchInfos.filter(b => 
+                b.type === BranchType.FEATURE && !b.isCurrent
+            );
+            const perennialBranches = branchInfos.filter(b => 
+                b.type === BranchType.PERENNIAL && !b.isCurrent
+            );
+            const prototypeBranches = branchInfos.filter(b => 
+                b.type === BranchType.PROTOTYPE && !b.isCurrent
+            );
+            const parkedBranches = branchInfos.filter(b => 
+                b.type === BranchType.PARKED && !b.isCurrent
+            );
 
-        const categories: CategoryTreeItem[] = [];
+            const categories: CategoryTreeItem[] = [];
 
-        // Always show current branch first
-        if (currentBranches.length > 0) {
-            categories.push(new CategoryTreeItem('Current Branch', currentBranches));
-        }
+            // Always show current branch first
+            if (currentBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Current Branch', currentBranches));
+            }
 
-        // Add feature branches
-        if (featureBranches.length > 0) {
-            categories.push(new CategoryTreeItem('Feature Branches', featureBranches));
-        }
+            // Add feature branches
+            if (featureBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Feature Branches', featureBranches));
+            }
 
-        // Add perennial branches
-        if (perennialBranches.length > 0) {
-            categories.push(new CategoryTreeItem('Perennial Branches', perennialBranches));
-        }
+            // Add perennial branches
+            if (perennialBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Perennial Branches', perennialBranches));
+            }
 
-        // Add prototype branches if any
-        if (prototypeBranches.length > 0) {
-            categories.push(new CategoryTreeItem('Prototype Branches', prototypeBranches));
-        }
+            // Add prototype branches if any
+            if (prototypeBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Prototype Branches', prototypeBranches));
+            }
 
-        // Add parked branches if any
-        if (parkedBranches.length > 0) {
-            categories.push(new CategoryTreeItem('Parked Branches', parkedBranches));
-        }
+            // Add parked branches if any
+            if (parkedBranches.length > 0) {
+                categories.push(new CategoryTreeItem('Parked Branches', parkedBranches));
+            }
 
-            console.log('Returning categories:', categories);
             return categories;
         } catch (error) {
-            console.error('Error in getCategoryItems:', error);
             vscode.window.showErrorMessage(`Failed to load Git Town data: ${error}`);
             return [];
         }

@@ -149,12 +149,12 @@ export async function isGitRepository(): Promise<boolean> {
  * Gets the currently checked out branch name.
  */
 export async function getCurrentBranch(): Promise<string> {
-    try {
-        const result = await runCommandInLocalFolder('git branch --show-current');
-        return result.output?.trim() || '';
-    } catch (error) {
-        return '';
-    }
+  try {
+    const result = await runCommandInLocalFolder('git branch --show-current');
+    return result.output?.trim() || '';
+  } catch (error) {
+    return '';
+  }
 }
 
 /**
@@ -162,14 +162,14 @@ export async function getCurrentBranch(): Promise<string> {
  * Returns array of branch names.
  */
 export async function getAllBranches(): Promise<string[]> {
-    try {
-        const result = await runCommandInLocalFolder('git branch --format="%(refname:short)"');
-        return result.output?.split('\n')
-            .map(line => line.trim())
-            .filter(line => line !== '') || [];
-    } catch (error) {
-        return [];
-    }
+  try {
+    const result = await runCommandInLocalFolder('git branch --format="%(refname:short)"');
+    return result.output?.split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== '') || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 /**

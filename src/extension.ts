@@ -33,8 +33,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.refresh', async () => {
 			outputChannel.appendLine('Refreshing Git Town views...');
-			gitTownProvider.refresh();
-			settingsProvider.refresh();
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
 			vscode.window.showInformationMessage('Git Town view refreshed!');
 		})
 	);
@@ -47,8 +47,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	) => {
 		try {
 			await enqueueCommandExecution(commandId, action);
-			gitTownProvider.refresh();
-			settingsProvider.refresh();
+			gitTownProvider?.refresh();
+			settingsProvider?.refresh();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			vscode.window.showErrorMessage(`${friendlyName} failed: ${message}`);

@@ -1,5 +1,11 @@
 name: Update CHANGELOG
 
+# This workflow automatically updates CHANGELOG.md when PRs are merged to main
+# Expected CHANGELOG.md format:
+#   - Must contain an "## [Unreleased]" section where new entries will be added
+#   - New entries are formatted as: ### [YYYY-MM-DD] - PR #123
+#   - Each entry includes: PR title, author, commit list, and PR link
+
 on:
   push:
     branches:
@@ -114,9 +120,11 @@ jobs:
           
           # Check if CHANGELOG.md exists
           if [ ! -f CHANGELOG.md ]; then
+            # Extract package name from package.json if available
+            PACKAGE_NAME=$(jq -r '.name' package.json 2>/dev/null || echo "this project")
             echo "# Change Log" > CHANGELOG.md
             echo "" >> CHANGELOG.md
-            echo "All notable changes to the \"phantomdave-gittown-wrapper\" extension will be documented in this file." >> CHANGELOG.md
+            echo "All notable changes to the \"$PACKAGE_NAME\" extension will be documented in this file." >> CHANGELOG.md
             echo "" >> CHANGELOG.md
             echo "## [Unreleased]" >> CHANGELOG.md
           fi

@@ -177,26 +177,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify approval status
+      - name: Verify PR has approval
         id: verify-approval
         if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true'
         run: |
-          # Check if PR is approved
+          # Check if PR has any approvals (could be from the earlier approval step or pre-existing)
           APPROVED=$(gh api \
             -H "Accept: application/vnd.github+json" \
             "/repos/${{ github.repository }}/pulls/${{ steps.get-pr.outputs.pr_number }}/reviews" \
             --jq '[.[] | select(.state == "APPROVED")] | length')
           
           if [ "$APPROVED" -gt 0 ]; then
-            echo "is_approved=true" >> $GITHUB_OUTPUT
+            echo "has_approval=true" >> $GITHUB_OUTPUT
           else
-            echo "is_approved=false" >> $GITHUB_OUTPUT
+            echo "has_approval=false" >> $GITHUB_OUTPUT
+            echo "Warning: PR does not have any approvals, skipping merge"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment on Pull Request before merge
-        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.is_approved == 'true'
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.has_approval == 'true'
         run: |
           gh pr comment ${{ steps.get-pr.outputs.pr_number }} \
             --repo ${{ github.repository }} \
@@ -205,7 +206,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Merge Pull Request
-        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.is_approved == 'true'
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.has_approval == 'true'
         run: |
           gh pr merge ${{ steps.get-pr.outputs.pr_number }} \
             --repo ${{ github.repository }} \

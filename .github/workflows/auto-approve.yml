@@ -32,11 +32,12 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.repository.full_name == github.repository &&
-      github.event.workflow_run.actor.type == 'Bot' &&
-      github.event.workflow_run.pull_requests != null &&
-      github.event.workflow_run.pull_requests.* != null &&
-      github.event.workflow_run.pull_requests[0].user.type == 'Bot' &&
-      github.event.workflow_run.pull_requests[0].draft == false
+      github.event.workflow_run.pull_requests[0] != null &&
+      github.event.workflow_run.pull_requests[0].draft == false &&
+      (
+        contains(github.event.workflow_run.actor.login, '[bot]') ||
+        contains(github.event.workflow_run.pull_requests[0].user.login, '[bot]')
+      )
     
     steps:
       - name: Get PR number
@@ -161,12 +162,14 @@ jobs:
           COMBINED_JSON=$(gh api -H "Accept: application/vnd.github+json" \
             "/repos/$OWNER_REPO/commits/$SHA/status")
           STATE=$(echo "$COMBINED_JSON" | jq -r '.state')
+          STATUSES_COUNT=$(echo "$COMBINED_JSON" | jq '.statuses | length')
 
           echo "Checks in progress: $IN_PROGRESS"
           echo "Checks failed: $FAILED"
           echo "Combined status: $STATE"
+          echo "Legacy statuses count: $STATUSES_COUNT"
 
-          if [ "$IN_PROGRESS" -eq 0 ] && [ "$FAILED" -eq 0 ] && [ "$STATE" = "success" ]; then
+          if [ "$IN_PROGRESS" -eq 0 ] && [ "$FAILED" -eq 0 ] && { [ "$STATE" = "success" ] || [ "$STATUSES_COUNT" -eq 0 ]; }; then
             echo "merge_ok=true" >> $GITHUB_OUTPUT
           else
             echo "merge_ok=false" >> $GITHUB_OUTPUT
@@ -174,12 +177,38 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge Pull Request
+      - name: Verify approval status
+        id: verify-approval
         if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true'
+        run: |
+          # Check if PR is approved
+          APPROVED=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/pulls/${{ steps.get-pr.outputs.pr_number }}/reviews" \
+            --jq '[.[] | select(.state == "APPROVED")] | length')
+          
+          if [ "$APPROVED" -gt 0 ]; then
+            echo "is_approved=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_approved=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on Pull Request before merge
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.is_approved == 'true'
+        run: |
+          gh pr comment ${{ steps.get-pr.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --body "Auto-squash-merged by workflow: all checks successful ✅"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge Pull Request
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true' && steps.verify-approval.outputs.is_approved == 'true'
         run: |
           gh pr merge ${{ steps.get-pr.outputs.pr_number }} \
             --repo ${{ github.repository }} \
-            --squash \
-            --body "Auto-squash-merged by workflow: all checks successful ✅"
+            --squash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

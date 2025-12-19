@@ -3,6 +3,12 @@ name: Publish to VS Code Marketplace
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g., v0.0.1)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,9 +32,15 @@ jobs:
         run: npm ci
 
       - name: Set version from release tag
-        if: github.event_name == 'release'
         run: |
-          VERSION=${{ github.event.release.tag_name }}
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION=${{ github.event.release.tag_name }}
+          elif [ -n "${{ inputs.tag_name }}" ]; then
+            VERSION=${{ inputs.tag_name }}
+          else
+            echo "Error: No tag name provided" >&2
+            exit 1
+          fi
           # Remove 'v' prefix if present
           VERSION=${VERSION#v}
           npm version $VERSION --no-git-tag-version
@@ -36,17 +48,7 @@ jobs:
       - name: Build extension
         run: npm run package
 
-      - name: Determine if dry run
-        id: dry_run
-        run: |
-          if [ "${{ github.event_name }}" == "release" ]; then
-            echo "is_dry_run=false" >> $GITHUB_OUTPUT
-          else
-            echo "is_dry_run=${{ inputs.dry_run }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Publish to Marketplace
-        if: steps.dry_run.outputs.is_dry_run == 'false'
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
         run: |
@@ -56,7 +58,3 @@ jobs:
           fi
 
           npx @vscode/vsce publish --pat "$VSCE_TOKEN" --no-dependencies
-
-      - name: Publish skipped (dry run)
-        if: inputs.dry_run == 'true'
-        run: echo "Dry run enabled - skipping publish to Marketplace"

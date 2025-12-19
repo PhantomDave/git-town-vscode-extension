@@ -7,6 +7,11 @@ on:
         description: 'Tag name for the release (e.g., v0.0.1)'
         required: true
         type: string
+      publish_to_marketplace:
+        description: 'Publish to VS Code Marketplace after creating release'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -62,3 +67,11 @@ jobs:
           files: ${{ steps.filename.outputs.filename }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: package-and-release
+    if: inputs.publish_to_marketplace
+    uses: ./.github/workflows/publish-marketplace.yml
+    secrets: inherit
+    with:
+      tag_name: ${{ inputs.tag_name }}

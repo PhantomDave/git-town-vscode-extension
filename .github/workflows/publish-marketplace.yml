@@ -37,8 +37,17 @@ jobs:
       - name: Build extension
         run: npm run package
 
+      - name: Determine if dry run
+        id: dry_run
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "is_dry_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "is_dry_run=${{ inputs.dry_run }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish to Marketplace
-        if: inputs.dry_run == 'false'
+        if: steps.dry_run.outputs.is_dry_run == 'false'
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
         run: |

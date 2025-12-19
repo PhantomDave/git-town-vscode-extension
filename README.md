@@ -184,7 +184,8 @@ This repository includes an automated GitHub Actions workflow for releases:
 2. Select the **Package and Release** workflow
 3. Click **Run workflow**
 4. Enter the desired tag name (e.g., `v0.1.0`)
-5. Click **Run workflow**
+5. Check **"Publish to VS Code Marketplace after creating release"** if you want to automatically publish the extension to the marketplace
+6. Click **Run workflow**
 
 The workflow will automatically:
 - Validate code (lint, type-check)
@@ -192,6 +193,7 @@ The workflow will automatically:
 - Create a GitHub Release with the specified tag
 - Attach the `.vsix` file to the release
 - Generate release notes from recent commits
+- Optionally publish to VS Code Marketplace if the checkbox was selected
 
 ## Contributing
 

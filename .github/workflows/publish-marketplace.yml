@@ -35,8 +35,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION=${{ github.event.release.tag_name }}
-          else
+          elif [ -n "${{ inputs.tag_name }}" ]; then
             VERSION=${{ inputs.tag_name }}
+          else
+            echo "Error: No tag name provided" >&2
+            exit 1
           fi
           # Remove 'v' prefix if present
           VERSION=${VERSION#v}

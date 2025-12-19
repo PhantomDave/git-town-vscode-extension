@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isValidGitBranchName, runGitTownCommand } from './utils';
+import { isValidGitBranchName, runGitTownCommand, normalizeBranchName } from './utils';
 
 export function registerKeybindings(context: vscode.ExtensionContext) {
     const keybindingCommands = [
@@ -10,11 +10,18 @@ export function registerKeybindings(context: vscode.ExtensionContext) {
                 placeHolder: 'feature/my-feature'
             });
             if (branchName) {
-                if (!isValidGitBranchName(branchName)) {
+                const { normalized, wasModified } = normalizeBranchName(branchName);
+                
+                // Show message if spaces were converted to hyphens
+                if (wasModified) {
+                    vscode.window.showInformationMessage(`Branch name normalized: "${branchName}" → "${normalized}"`);
+                }
+                
+                if (!isValidGitBranchName(normalized)) {
                     vscode.window.showErrorMessage('Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".');
                     return;
                 }
-                await runGitTownCommand(`git town hack "${branchName}"`);
+                await runGitTownCommand(`git town hack "${normalized}"`);
             }
         }},
         { command: 'phantomdave-gittown-wrapper.ship', callback: async () => {

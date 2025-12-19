@@ -7,9 +7,8 @@ export class SettingsItem extends vscode.TreeItem {
         
         if (action === 'showOutput') {
             this.command = {
-                command: 'workbench.action.output.show',
-                title: 'Show Output',
-                arguments: ['Git Town']
+                command: 'phantomdave-gittown-wrapper.showOutput',
+                title: 'Show Output'
             };
         } else if (action?.startsWith('https://') || action?.startsWith('http://')) {
             this.command = {

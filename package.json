@@ -72,6 +72,16 @@
         "command": "phantomdave-gittown-wrapper.initializeGitTown",
         "title": "Git Town: Initialize",
         "description": "Initialize Git Town for the current repository"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.showOutput",
+        "title": "Git Town: Show Output",
+        "description": "Show the Git Town output channel"
+      },
+      {
+        "command": "phantomdave-gittown-wrapper.checkoutBranch",
+        "title": "Checkout Branch",
+        "description": "Checkout the selected branch"
       }
     ],
     "keybindings": [
@@ -100,6 +110,13 @@
           "command": "phantomdave-gittown-wrapper.refresh",
           "group": "navigation",
           "when": "view == gittown-view"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "phantomdave-gittown-wrapper.checkoutBranch",
+          "when": "view == gittown-view && viewItem == branch",
+          "group": "inline@1"
         }
       ]
     }

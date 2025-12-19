@@ -1,5 +1,15 @@
 name: Auto Approve
 
+# This workflow automatically approves PRs from bots after CI passes successfully.
+# It triggers when "CI" or "Main CI" workflows complete on a pull request.
+#
+# For this to work with changelog PRs created by update-changelog.yml:
+#   - The update-changelog workflow must use a PAT (not GITHUB_TOKEN) to create PRs
+#   - This allows CI workflows to run on the created PR
+#   - Once CI completes successfully, this workflow approves the PR
+#
+# See .github/WORKFLOWS_SETUP.md for detailed setup instructions.
+
 on:
   workflow_run:
     workflows: ["CI", "Main CI"]

@@ -1,23 +1,26 @@
 name: Auto Approve
 
 # This workflow automatically approves PRs from bots after CI passes successfully.
-# It triggers when "CI" or "Main CI" workflows complete on a pull request.
+# It triggers when selected CI workflows complete on a pull request and will
+# also merge the PR if there are no failing or in-progress checks.
 #
 # For this to work with changelog PRs created by update-changelog.yml:
 #   - The update-changelog workflow must use a PAT (not GITHUB_TOKEN) to create PRs
 #   - This allows CI workflows to run on the created PR
-#   - Once CI completes successfully, this workflow approves the PR
+#   - Once CI completes successfully, this workflow approves and merges the PR
 #
 # See .github/WORKFLOWS_SETUP.md for detailed setup instructions.
 
 on:
   workflow_run:
-    workflows: ["CI", "Main CI"]
+    workflows: ["CI", "Main CI", "check"]
     types: [completed]
 
 permissions:
   pull-requests: write
   contents: read
+  checks: read
+  statuses: read
 
 jobs:
   auto-approve:
@@ -29,11 +32,11 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.repository.full_name == github.repository &&
-      (github.event.workflow_run.actor.login == 'github-actions[bot]' || 
-       github.event.workflow_run.actor.login == 'dependabot[bot]') &&
+      github.event.workflow_run.actor.type == 'Bot' &&
       github.event.workflow_run.pull_requests != null &&
       github.event.workflow_run.pull_requests.* != null &&
-      github.event.workflow_run.pull_requests[0].user.login == github.event.workflow_run.actor.login
+      github.event.workflow_run.pull_requests[0].user.type == 'Bot' &&
+      github.event.workflow_run.pull_requests[0].draft == false
     
     steps:
       - name: Get PR number
@@ -96,14 +99,87 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check PR targets main
+        id: base-branch
+        if: steps.get-pr.outputs.pr_number != ''
+        run: |
+          BASE=$(gh pr view ${{ steps.get-pr.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --json baseRefName -q .baseRefName)
+          echo "PR base: $BASE"
+          if [ "$BASE" = "main" ]; then
+            echo "on_main=true" >> $GITHUB_OUTPUT
+          else
+            echo "on_main=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Approve Pull Request
         if: |
           steps.get-pr.outputs.pr_number != '' && 
+          steps.base-branch.outputs.on_main == 'true' &&
           steps.check-approval.outputs.already_approved == 'false'
         run: |
           gh pr review ${{ steps.get-pr.outputs.pr_number }} \
             --repo ${{ github.repository }} \
             --approve \
             --body "Auto-approved: All required checks passed ✅"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR head SHA
+        id: head-sha
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true'
+        run: |
+          HEAD_SHA=$(gh pr view ${{ steps.get-pr.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --json headRefOid -q .headRefOid)
+          if [ -z "$HEAD_SHA" ] || [ "$HEAD_SHA" = "null" ]; then
+            echo "sha=" >> $GITHUB_OUTPUT
+          else
+            echo "sha=$HEAD_SHA" >> $GITHUB_OUTPUT
+            echo "Head SHA: $HEAD_SHA"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify checks status
+        id: eval-checks
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.head-sha.outputs.sha != ''
+        run: |
+          OWNER_REPO="${{ github.repository }}"
+          SHA="${{ steps.head-sha.outputs.sha }}"
+
+          # Fetch check runs for this commit
+          CHECKS_JSON=$(gh api -H "Accept: application/vnd.github+json" \
+            "/repos/$OWNER_REPO/commits/$SHA/check-runs")
+          IN_PROGRESS=$(echo "$CHECKS_JSON" | jq '[.check_runs[] | select(.status != "completed")] | length')
+          FAILED=$(echo "$CHECKS_JSON" | jq '[.check_runs[] | select(.status == "completed" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out" or .conclusion == "action_required" or .conclusion == "stale"))] | length')
+
+          # Fetch legacy combined status for additional coverage
+          COMBINED_JSON=$(gh api -H "Accept: application/vnd.github+json" \
+            "/repos/$OWNER_REPO/commits/$SHA/status")
+          STATE=$(echo "$COMBINED_JSON" | jq -r '.state')
+
+          echo "Checks in progress: $IN_PROGRESS"
+          echo "Checks failed: $FAILED"
+          echo "Combined status: $STATE"
+
+          if [ "$IN_PROGRESS" -eq 0 ] && [ "$FAILED" -eq 0 ] && [ "$STATE" = "success" ]; then
+            echo "merge_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "merge_ok=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge Pull Request
+        if: steps.get-pr.outputs.pr_number != '' && steps.base-branch.outputs.on_main == 'true' && steps.eval-checks.outputs.merge_ok == 'true'
+        run: |
+          gh pr merge ${{ steps.get-pr.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --squash \
+            --body "Auto-squash-merged by workflow: all checks successful ✅"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

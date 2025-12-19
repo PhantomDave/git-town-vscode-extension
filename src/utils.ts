@@ -162,15 +162,8 @@ export async function getGitTownBranches(): Promise<string[]> {
 
 function isSafeGitTownCommand(command: string): boolean {
   const trimmed = command.trim();
-  // Only allow Git Town commands and disallow common shell metacharacters used for injection.
-  if (!trimmed.startsWith('git town')) {
-    return false;
-  }
-  // Reject characters that are typically used for shell command chaining, substitution, or globbing.
-  // This includes: semicolons, pipes, backticks, dollar signs, redirects, command substitution,
-  // wildcards, brackets, braces, backslashes, and quotes
-  const unsafePattern = /[;&|`$<>()\\*?[\]{}'"]/;
-  return !unsafePattern.test(trimmed);
+  // Only allow Git Town commands
+  return trimmed.startsWith('git town');
 }
 
 export function sleep(ms: number): Promise<void> {

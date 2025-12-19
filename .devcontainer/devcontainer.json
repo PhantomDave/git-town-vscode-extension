@@ -6,7 +6,8 @@
 			"extensions": [
 				"dbaeumer.vscode-eslint",
 				"ms-vscode.extension-test-runner",
-				"connor4312.esbuild-problem-matchers"
+				"connor4312.esbuild-problem-matchers",
+				"PhantomDave.phantomdave-gittown-wrapper"
 			]
 		}
 	},

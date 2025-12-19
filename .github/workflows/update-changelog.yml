@@ -5,6 +5,14 @@ name: Update CHANGELOG
 #   - Must contain an "## [Unreleased]" section where new entries will be added
 #   - New entries are formatted as: ### [YYYY-MM-DD] - PR #123
 #   - Each entry includes: PR title, author, commit list, and PR link
+#
+# IMPORTANT: To enable auto-approval of changelog PRs, you must configure a Personal Access Token:
+#   1. Create a GitHub PAT with 'repo' and 'workflow' scopes at: https://github.com/settings/tokens
+#   2. Add it as a repository secret named 'PAT' or 'GH_PAT'
+#   3. The PAT allows the created PR to trigger CI workflows, which then triggers auto-approve
+#
+# Without a PAT, the changelog PR will be created but won't trigger CI workflows (GitHub security feature).
+# This means the auto-approve workflow won't run and the PR will require manual review and merge.
 
 on:
   push:
@@ -24,7 +32,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT if available (to trigger workflows), otherwise fall back to GITHUB_TOKEN
+          # Note: PRs created with GITHUB_TOKEN won't trigger workflow runs due to GitHub's security model
+          token: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
@@ -53,6 +63,7 @@ jobs:
           fi
           
           # Use GitHub API to find associated PR for this commit
+          # Use the same token that was used for checkout
           PR_DATA=$(gh api \
             -H "Accept: application/vnd.github+json" \
             "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
@@ -112,7 +123,8 @@ jobs:
           # Save commits to a temporary file
           echo "$COMMITS" > /tmp/pr_commits.txt
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use the same token for consistency
+          GH_TOKEN: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Update CHANGELOG.md
         if: steps.get-commits.outputs.skip != 'true'
@@ -216,10 +228,11 @@ jobs:
           git push origin "$BRANCH_NAME"
           
           # Create PR using GitHub CLI
+          # Use PAT if available to allow workflow triggers, otherwise use GITHUB_TOKEN
           gh pr create \
             --title "docs: update CHANGELOG.md for PR #${PR_NUMBER}" \
             --body "This PR automatically updates the CHANGELOG.md file with the changes from PR #${PR_NUMBER}." \
             --base main \
             --head "$BRANCH_NAME"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT || secrets.GH_PAT || secrets.GITHUB_TOKEN }}

@@ -220,10 +220,8 @@ This repository includes several automated GitHub Actions workflows:
 When a PR is merged to `main`, a workflow automatically:
 1. Extracts the PR number, title, author, and commits
 2. Updates the CHANGELOG.md file with a new entry under the `[Unreleased]` section
-3. Creates a new PR with the CHANGELOG updates (using the built-in `secrets.GITHUB_TOKEN`)
+3. Creates a new PR with the CHANGELOG updates
 4. The workflow prevents infinite loops by skipping changelog update PRs when determining whether to run again
-
-> **Note:** Because changelog update PRs are created with `secrets.GITHUB_TOKEN`, they do **not** trigger other GitHub Actions workflows (including CI and the auto-approval workflow). These changelog PRs require manual review and merging.
 
 #### Auto-Approval
 When CI checks complete successfully on PRs from `github-actions[bot]` or `dependabot[bot]`, a workflow:
@@ -231,6 +229,18 @@ When CI checks complete successfully on PRs from `github-actions[bot]` or `depen
 2. Automatically approves the PR with a ✅ message
 3. Prevents duplicate approvals by checking existing reviews
 4. Verifies that the PR author matches the workflow actor for security
+
+#### Setting Up Full Automation
+
+To enable automatic approval of changelog PRs, you need to configure a Personal Access Token (PAT):
+
+1. **Create a PAT** with `repo` and `workflow` scopes at [GitHub Settings](https://github.com/settings/tokens)
+2. **Add it as a repository secret** named `PAT` or `GH_PAT` in your repository settings
+3. The PAT allows the created PR to trigger CI workflows, which then enables auto-approval
+
+**Why is this needed?** GitHub's security model prevents workflows triggered by the default `GITHUB_TOKEN` from triggering other workflows. Without a PAT, changelog PRs won't trigger CI automatically and will require manual review and merge.
+
+For detailed setup instructions, see [`.github/WORKFLOWS_SETUP.md`](.github/WORKFLOWS_SETUP.md).
 
 These workflows work together to streamline the maintenance process and keep the CHANGELOG up-to-date automatically.
 

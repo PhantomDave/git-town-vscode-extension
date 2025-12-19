@@ -1,14 +1,16 @@
-# Change Log
-
-All notable changes to the "phantomdave-gittown-wrapper" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
 ## [Unreleased]
+
+### [2025-12-19] - PR #27
+
+**Fix condition to check for pull requests in auto-approve workflow** by @PhantomDave
+
+- Fix condition to check for pull requests in auto-approve workflow
+
+[View PR](https://github.com/PhantomDave/git-town-vscode-extension/pull/27)
 
 ### [2025-12-19] - PR #24
 
-**[WIP] Fix auto-approval workflow for changelog update** by @app/copilot-swe-agent
+** Fix auto-approval workflow for changelog update**
 
 - Initial plan
 - Update workflows to support PAT for auto-approval and add documentation
@@ -18,7 +20,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### [2025-12-19] - PR #19
 
-**Add automated CHANGELOG updates and auto-approve workflows** by @app/copilot-swe-agent
+**Add automated CHANGELOG updates and auto-approve workflows**
 
 - Initial plan
 - Add automated CHANGELOG update and auto-approve workflows

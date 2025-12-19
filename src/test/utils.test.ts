@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { debounce, isValidGitBranchName } from '../utils';
+import { debounce, isValidGitBranchName, normalizeBranchName } from '../utils';
 
 suite('Utils Tests', () => {
   test('debounce delays execution and only calls once', async () => {
@@ -78,5 +78,41 @@ suite('Utils Tests', () => {
 
   test('isValidGitBranchName accepts branches starting with numbers', () => {
     assert.strictEqual(isValidGitBranchName('123-feature'), true);
+  });
+
+  test('normalizeBranchName converts spaces to hyphens', () => {
+    const result = normalizeBranchName('my feature branch');
+    assert.strictEqual(result.normalized, 'my-feature-branch');
+    assert.strictEqual(result.wasModified, true);
+  });
+
+  test('normalizeBranchName handles multiple consecutive spaces', () => {
+    const result = normalizeBranchName('my  feature   branch');
+    assert.strictEqual(result.normalized, 'my--feature---branch');
+    assert.strictEqual(result.wasModified, true);
+  });
+
+  test('normalizeBranchName returns unchanged name when no spaces', () => {
+    const result = normalizeBranchName('my-feature-branch');
+    assert.strictEqual(result.normalized, 'my-feature-branch');
+    assert.strictEqual(result.wasModified, false);
+  });
+
+  test('normalizeBranchName handles leading and trailing spaces', () => {
+    const result = normalizeBranchName(' my feature ');
+    assert.strictEqual(result.normalized, '-my-feature-');
+    assert.strictEqual(result.wasModified, true);
+  });
+
+  test('normalizeBranchName handles empty string', () => {
+    const result = normalizeBranchName('');
+    assert.strictEqual(result.normalized, '');
+    assert.strictEqual(result.wasModified, false);
+  });
+
+  test('normalizeBranchName handles mixed special characters', () => {
+    const result = normalizeBranchName('feature/my branch_v1.0');
+    assert.strictEqual(result.normalized, 'feature/my-branch_v1.0');
+    assert.strictEqual(result.wasModified, true);
   });
 });

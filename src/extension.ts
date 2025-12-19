@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, getOutputChannel, sleep, isValidGitBranchName, normalizeBranchName } from './utils';
+import { isGitRepository, isGitTownInitialized, isGitTownInstalled, runGitTownCommand, runGitCommand, getOutputChannel, sleep, isValidGitBranchName, normalizeBranchName } from './utils';
 import { enqueueCommandExecution, onCommandStateChanged } from './commandState';
 import { SettingsTreeDataProvider } from './trees/SettingsTreeDataProvider';
 import { GitTownTreeDataProvider } from './trees/GitTownTreeDataProvider';
@@ -69,8 +69,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage('No branch selected');
 				return;
 			}
-			await runWorkflowCommand('phantomdave-gittown-wrapper.checkoutBranch', 'Git Town checkout', async () => {
-				await runGitTownCommand(`git checkout "${item.label}"`);
+			await runWorkflowCommand('phantomdave-gittown-wrapper.checkoutBranch', 'Git checkout', async () => {
+				await runGitCommand(`git checkout "${item.label}"`);
 			});
 		})
 	);
@@ -82,14 +82,17 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 		}),
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.hack', async () => {
+			const validateBranchName = (input: string): string | null => {
+				const { normalized } = normalizeBranchName(input);
+				return isValidGitBranchName(normalized) ? null : 'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".';
+			};
+
 			const branchName = await vscode.window.showInputBox({
 				prompt: 'Enter new branch name',
-				validateInput: (input) => {
-					const { normalized } = normalizeBranchName(input);
-					return isValidGitBranchName(normalized) ? null : 'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".';
-				},
+				validateInput: validateBranchName,
 				placeHolder: 'feature/my-feature'
 			});
+
 			if (branchName) {
 				const { normalized, wasModified } = normalizeBranchName(branchName);
 				
@@ -98,13 +101,6 @@ export async function activate(context: vscode.ExtensionContext) {
 					vscode.window.showInformationMessage(`Branch name normalized: "${branchName}" → "${normalized}"`);
 				}
 				
-				//It is a double-check but better safe than sorry
-				if (!isValidGitBranchName(normalized)) {
-					vscode.window.showErrorMessage(
-						'Invalid branch name. Must start with alphanumeric and use only letters, numbers, ".", "_", "-", and "/".'
-					);
-					return;
-				}
 				await runWorkflowCommand('phantomdave-gittown-wrapper.hack', 'Git Town hack', async () => {
 					await runGitTownCommand(`git town hack "${normalized}"`);
 				});

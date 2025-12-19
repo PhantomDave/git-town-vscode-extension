@@ -110,7 +110,7 @@
       "view/item/context": [
         {
           "command": "phantomdave-gittown-wrapper.checkoutBranch",
-          "when": "view == gittown-view && viewItem =~ /.*branch.*/i",
+          "when": "view == gittown-view && viewItem == branch",
           "group": "inline@1"
         }
       ]

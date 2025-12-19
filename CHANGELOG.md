@@ -1,5 +1,20 @@
 ## [Unreleased]
 
+### [2025-12-19] - PR #21
+
+**Chore/polishing** by @PhantomDave
+
+- use shared termianl instead of creating a new instance
+- Add branch name normalization and validation in commands
+- Add commands for showing output and checking out branches in Git Town
+- [WIP] Refactor branch name normalization and improve terminal usage (…
+- Initial plan (#26)
+- Merge branch 'main' into chore/polishing
+- fix: add optional chaining to prevent errors during refresh
+- test: ensure extension is activated before running tests
+
+[View PR](https://github.com/PhantomDave/git-town-vscode-extension/pull/21)
+
 ### [2025-12-19] - PR #27
 
 **Fix condition to check for pull requests in auto-approve workflow** by @PhantomDave

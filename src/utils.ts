@@ -12,6 +12,10 @@ interface CommandResult {
 
 
 let outputChannel: vscode.OutputChannel | undefined;
+  const terminal = vscode.window.createTerminal({
+    name: 'Git Town',
+    cwd: getCwd()
+  });
 
 export function getOutputChannel(): vscode.OutputChannel {
   if (!outputChannel) {
@@ -211,11 +215,6 @@ export async function runGitTownCommand(command: string): Promise<void> {
     vscode.window.showErrorMessage('The Git Town command is not valid or may be unsafe and was not executed.');
     return;
   }
-
-  const terminal = vscode.window.createTerminal({
-    name: 'Git Town',
-    cwd: getCwd()
-  });
   terminal.show();
   terminal.sendText(safeCommand);
 }

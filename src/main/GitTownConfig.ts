@@ -18,8 +18,8 @@ export async function getGitConfig(key: string): Promise<string> {
   try {
     const result = await runCommandInLocalFolder(`git config --get ${key}`);
     return result.output?.trim() || '';
-  } catch (error) {
-    console.error(`Error getting git config ${key}:`, error);
+  } catch {
+    // Config key not set - return empty string
     return '';
   }
 }
@@ -32,8 +32,8 @@ export async function getGitConfigAll(key: string): Promise<string[]> {
   try {
     const result = await runCommandInLocalFolder(`git config --get-all ${key}`);
     return result.output?.split('\n').filter(line => line.trim() !== '') || [];
-  } catch (error) {
-    console.error(`Error getting git config all ${key}:`, error);
+  } catch {
+    // Config key not set - return empty array
     return [];
   }
 }
@@ -64,9 +64,9 @@ export async function parseGitTownConfig(): Promise<GitTownConfig> {
 
   return {
     mainBranch: mainBranch || 'main',
-    perennialBranches: perennialBranches,
-    perennialRegex: perennialRegex,
-    prototypeNames: prototypeNames,
-    parkedBranches: parkedBranches
+    perennialBranches,
+    perennialRegex,
+    prototypeNames,
+    parkedBranches
   };
 }

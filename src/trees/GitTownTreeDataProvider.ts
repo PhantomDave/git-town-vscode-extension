@@ -59,48 +59,9 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<vscode.T
             return this.getCategoryItems();
         }
 
-<<<<<<< Updated upstream
-        // Handle children based on parent type
-        if (element.itemType === TreeItemType.Status) {
-            const [currentBranch, changesCount] = await Promise.all([
-                getCurrentBranch(),
-                getUncommittedChangesCount()
-            ]);
-            
-            return [
-                new GitTownItem(`Current Branch: ${currentBranch}`, vscode.TreeItemCollapsibleState.None),
-                new GitTownItem(`Uncommitted Changes: ${changesCount}`, vscode.TreeItemCollapsibleState.None),
-            ];
-        }
-
-        if (element.itemType === TreeItemType.Branches) {
-            const [branches, currentBranch] = await Promise.all([
-                getGitTownBranches(),
-                getCurrentBranch()
-            ]);
-            
-            return branches.map(branch => {
-                const item = new GitTownItem(branch, vscode.TreeItemCollapsibleState.None);
-                if (branch === currentBranch) {
-                    item.description = '(current)';
-                    item.iconPath = new vscode.ThemeIcon('check');
-                }
-                return item;
-            });
-        }
-
-        if (element.itemType === TreeItemType.Workflows) {
-            return [
-                this.createWorkflowItem('Sync', 'phantomdave-gittown-wrapper.sync'),
-                this.createWorkflowItem('Hack (New Branch)', 'phantomdave-gittown-wrapper.hack'),
-                this.createWorkflowItem('Ship (Merge & Delete)', 'phantomdave-gittown-wrapper.ship'),
-                this.createWorkflowItem('Propose (Create PR)', 'phantomdave-gittown-wrapper.propose'),
-            ];
-=======
         // Category level: return branches in that category
         if (element instanceof CategoryTreeItem) {
             return element.branches.map(branch => new BranchTreeItem(branch));
->>>>>>> Stashed changes
         }
 
         // Branch level: no children

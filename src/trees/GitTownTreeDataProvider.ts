@@ -52,7 +52,7 @@ export class GitTownTreeDataProvider implements vscode.TreeDataProvider<GitTownI
             ]);
             
             return branches.map(branch => {
-                const item = new GitTownItem(branch, vscode.TreeItemCollapsibleState.None);
+                const item = new GitTownItem(branch, vscode.TreeItemCollapsibleState.None, undefined, undefined, true);
                 if (branch === currentBranch) {
                     item.description = '(current)';
                     item.iconPath = new vscode.ThemeIcon('check');

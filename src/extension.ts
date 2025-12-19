@@ -55,6 +55,26 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	// Register show output command for Settings view
+	context.subscriptions.push(
+		vscode.commands.registerCommand('phantomdave-gittown-wrapper.showOutput', async () => {
+			const channel = getOutputChannel();
+			channel.show(true);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('phantomdave-gittown-wrapper.checkoutBranch', async (item) => {
+			if (!item || !item.label) {
+				vscode.window.showErrorMessage('No branch selected');
+				return;
+			}
+			await runWorkflowCommand('phantomdave-gittown-wrapper.checkoutBranch', 'Git Town checkout', async () => {
+				await runGitTownCommand(`git checkout "${item.label}"`);
+			});
+		})
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('phantomdave-gittown-wrapper.sync', async () => {
 			await runWorkflowCommand('phantomdave-gittown-wrapper.sync', 'Git Town sync', async () => {

@@ -28,6 +28,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Update version in package.json
+        run: |
+          VERSION=${{ inputs.tag_name }}
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          npm version $VERSION --no-git-tag-version
+
       - name: Package extension
         run: |
           echo "y" | npm run package-extension

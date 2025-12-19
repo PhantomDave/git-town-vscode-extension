@@ -28,25 +28,40 @@ jobs:
       - name: Get merged PR commits
         id: get-commits
         run: |
-          # Get the commit message of the last commit
+          # Get the commit SHA of the last commit
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Processing commit: $COMMIT_SHA"
+          
+          # Get the commit message for infinite loop detection
           LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
           
-          # Extract PR number from merge commit message (supports "Merge pull request #123" or "(#123)" formats)
-          PR_NUMBER=$(echo "$LAST_COMMIT_MSG" | grep -oP '(?:Merge pull request #|#|\(#)\K\d+' | head -1 || echo "")
-          
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR number found in commit message. Skipping changelog update."
-            echo "skip=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
           # Check if this is a changelog update PR (skip to avoid infinite loop)
-          if echo "$LAST_COMMIT_MSG" | grep -q "update CHANGELOG.md"; then
+          if echo "$LAST_COMMIT_MSG" | grep -q "^docs: update CHANGELOG.md for PR #"; then
             echo "This is a changelog update PR. Skipping to avoid infinite loop."
             echo "skip=true" >> $GITHUB_OUTPUT
             exit 0
           fi
           
+          # Use GitHub API to find associated PR for this commit
+          PR_DATA=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
+            --jq '.[0]' 2>/dev/null || echo "null")
+          
+          if [ "$PR_DATA" = "null" ] || [ -z "$PR_DATA" ]; then
+            # Fallback to parsing commit message
+            PR_NUMBER=$(echo "$LAST_COMMIT_MSG" | grep -oP '(?:Merge pull request #|#|\(#)\K\d+' | head -1 || echo "")
+            
+            if [ -z "$PR_NUMBER" ]; then
+              echo "No PR associated with this commit. Skipping changelog update."
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          fi
+          
+          echo "Found PR #$PR_NUMBER"
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "skip=false" >> $GITHUB_OUTPUT
           
@@ -110,14 +125,28 @@ jobs:
           UNRELEASED_LINE=$(grep -n "## \[Unreleased\]" CHANGELOG.md | cut -d: -f1)
           
           if [ -z "$UNRELEASED_LINE" ]; then
-            # If no [Unreleased] section, add it after the header
-            {
-              head -n 5 CHANGELOG.md
-              echo ""
-              echo "## [Unreleased]"
-              cat /tmp/new_entry.txt
-              tail -n +6 CHANGELOG.md
-            } > /tmp/changelog_new.md
+            # If no [Unreleased] section, find the end of the header and add it there
+            # Look for the first ## heading or add after the header comment
+            FIRST_HEADING=$(grep -n "^## " CHANGELOG.md | head -1 | cut -d: -f1)
+            if [ -z "$FIRST_HEADING" ]; then
+              # No headings found, append to end
+              {
+                cat CHANGELOG.md
+                echo ""
+                echo "## [Unreleased]"
+                cat /tmp/new_entry.txt
+              } > /tmp/changelog_new.md
+            else
+              # Insert before first heading
+              {
+                head -n $((FIRST_HEADING - 1)) CHANGELOG.md
+                echo ""
+                echo "## [Unreleased]"
+                cat /tmp/new_entry.txt
+                echo ""
+                tail -n +$FIRST_HEADING CHANGELOG.md
+              } > /tmp/changelog_new.md
+            fi
           else
             # Insert the new entry after the [Unreleased] line
             {
